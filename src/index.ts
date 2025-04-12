@@ -106,6 +106,26 @@ const UPDATE_CAMPAIGN_SETTINGS_TOOL: Tool = {
   },
 };
 
+const UPDATE_CAMPAIGN_STATUS_TOOL: Tool = {
+  name: 'smartlead_update_campaign_status',
+  description: 'Update the status of a campaign. Use this specifically for changing a campaign\'s status.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      campaign_id: {
+        type: 'number',
+        description: 'ID of the campaign to update the status for',
+      },
+      status: {
+        type: 'string',
+        enum: ['PAUSED', 'STOPPED', 'START'],
+        description: 'New status for the campaign (must be in uppercase)',
+      },
+    },
+    required: ['campaign_id', 'status'],
+  },
+};
+
 const GET_CAMPAIGN_TOOL: Tool = {
   name: 'smartlead_get_campaign',
   description: 'Get details of a specific campaign by ID.',
@@ -247,6 +267,11 @@ interface UpdateCampaignSettingsParams {
   settings?: Record<string, any>;
 }
 
+interface UpdateCampaignStatusParams {
+  campaign_id: number;
+  status: 'PAUSED' | 'STOPPED' | 'START';
+}
+
 interface GetCampaignParams {
   campaign_id: number;
 }
@@ -302,6 +327,18 @@ function isUpdateCampaignSettingsParams(args: unknown): args is UpdateCampaignSe
     args !== null &&
     'campaign_id' in args &&
     typeof (args as { campaign_id: unknown }).campaign_id === 'number'
+  );
+}
+
+function isUpdateCampaignStatusParams(args: unknown): args is UpdateCampaignStatusParams {
+  return (
+    typeof args === 'object' &&
+    args !== null &&
+    'campaign_id' in args &&
+    typeof (args as { campaign_id: unknown }).campaign_id === 'number' &&
+    'status' in args &&
+    typeof (args as { status: unknown }).status === 'string' &&
+    ['PAUSED', 'STOPPED', 'START'].includes((args as { status: string }).status)
   );
 }
 
@@ -477,6 +514,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     CREATE_CAMPAIGN_TOOL,
     UPDATE_CAMPAIGN_SCHEDULE_TOOL,
     UPDATE_CAMPAIGN_SETTINGS_TOOL,
+    UPDATE_CAMPAIGN_STATUS_TOOL,
     GET_CAMPAIGN_TOOL,
     LIST_CAMPAIGNS_TOOL,
     SAVE_CAMPAIGN_SEQUENCE_TOOL,
@@ -585,6 +623,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const response = await withRetry(
             async () => apiClient.post(`/campaigns/${campaign_id}/settings`, settingsParams),
             'update campaign settings'
+          );
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(response.data, null, 2),
+              },
+            ],
+            isError: false,
+          };
+        } catch (error) {
+          const errorMessage = axios.isAxiosError(error)
+            ? `API Error: ${error.response?.data?.message || error.message}`
+            : `Error: ${error instanceof Error ? error.message : String(error)}`;
+
+          return {
+            content: [{ type: 'text', text: errorMessage }],
+            isError: true,
+          };
+        }
+      }
+
+      case 'smartlead_update_campaign_status': {
+        if (!isUpdateCampaignStatusParams(args)) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            'Invalid arguments for smartlead_update_campaign_status'
+          );
+        }
+
+        const { campaign_id, status } = args;
+
+        try {
+          const response = await withRetry(
+            async () => apiClient.post(`/campaigns/${campaign_id}/status`, { status }),
+            'update campaign status'
           );
 
           return {
