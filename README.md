@@ -1,6 +1,6 @@
 # Smartlead MCP Server
 
-This is a Model Context Protocol (MCP) server for Smartlead campaign management integration. It provides tools for creating and managing campaigns, updating campaign settings, and managing campaign sequences.
+A Model Context Protocol (MCP) server for Smartlead campaign management integration. This server provides tools for creating and managing campaigns, updating campaign settings, and managing campaign sequences.
 
 ## Features
 
