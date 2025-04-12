@@ -129,7 +129,7 @@ const LIST_CAMPAIGNS_TOOL: Tool = {
     properties: {
       status: {
         type: 'string',
-        enum: ['active', 'paused', 'completed', 'all'],
+        enum: ['active', 'paused', 'completed'],
         description: 'Filter campaigns by status',
       },
       limit: {
@@ -159,20 +159,62 @@ const SAVE_CAMPAIGN_SEQUENCE_TOOL: Tool = {
         items: {
           type: 'object',
           properties: {
-            subject: {
-              type: 'string',
-              description: 'Email subject line',
-            },
-            body: {
-              type: 'string',
-              description: 'Email body content',
-            },
-            wait_days: {
+            seq_number: {
               type: 'number',
-              description: 'Days to wait before sending this email',
+              description: 'The sequence number (order) of this email',
             },
+            seq_delay_details: {
+              type: 'object',
+              properties: {
+                delay_in_days: {
+                  type: 'number',
+                  description: 'Days to wait before sending this email',
+                }
+              },
+              description: 'Delay details for this sequence'
+            },
+            variant_distribution_type: {
+              type: 'string',
+              enum: ['MANUAL_EQUAL', 'MANUAL_PERCENTAGE', 'AI_EQUAL'],
+              description: 'How to distribute variants'
+            },
+            lead_distribution_percentage: {
+              type: 'number',
+              description: 'What sample % size of the lead pool to use to find the winner (for AI_EQUAL)'
+            },
+            winning_metric_property: {
+              type: 'string',
+              enum: ['OPEN_RATE', 'CLICK_RATE', 'REPLY_RATE', 'POSITIVE_REPLY_RATE'],
+              description: 'Metric to use for determining the winning variant (for AI_EQUAL)'
+            },
+            seq_variants: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  subject: {
+                    type: 'string',
+                    description: 'Email subject line',
+                  },
+                  email_body: {
+                    type: 'string',
+                    description: 'Email body content in HTML',
+                  },
+                  variant_label: {
+                    type: 'string',
+                    description: 'Label for this variant (A, B, C, etc.)',
+                  },
+                  variant_distribution_percentage: {
+                    type: 'number',
+                    description: 'Percentage of leads to receive this variant (for MANUAL_PERCENTAGE)'
+                  }
+                },
+                required: ['subject', 'email_body', 'variant_label'],
+              },
+              description: 'Variants of the email in this sequence'
+            }
           },
-          required: ['subject', 'body'],
+          required: ['seq_number', 'seq_delay_details', 'variant_distribution_type', 'seq_variants'],
         },
         description: 'Sequence of emails to send',
       },
@@ -210,7 +252,7 @@ interface GetCampaignParams {
 }
 
 interface ListCampaignsParams {
-  status?: 'active' | 'paused' | 'completed' | 'all';
+  status?: 'active' | 'paused' | 'completed';
   limit?: number;
   offset?: number;
 }
@@ -218,9 +260,20 @@ interface ListCampaignsParams {
 interface SaveCampaignSequenceParams {
   campaign_id: number;
   sequence: Array<{
-    subject: string;
-    body: string;
-    wait_days?: number;
+    seq_number: number;
+    seq_delay_details: {
+      delay_in_days: number;
+    };
+    variant_distribution_type: 'MANUAL_EQUAL' | 'MANUAL_PERCENTAGE' | 'AI_EQUAL';
+    lead_distribution_percentage?: number;
+    winning_metric_property?: 'OPEN_RATE' | 'CLICK_RATE' | 'REPLY_RATE' | 'POSITIVE_REPLY_RATE';
+    seq_variants: Array<{
+      subject: string;
+      email_body: string;
+      variant_label: string;
+      id?: number;
+      variant_distribution_percentage?: number;
+    }>;
   }>;
 }
 
@@ -278,14 +331,35 @@ function isSaveCampaignSequenceParams(args: unknown): args is SaveCampaignSequen
   }
 
   const sequence = (args as { sequence: unknown[] }).sequence;
-  return sequence.every(
-    (item) =>
-      typeof item === 'object' &&
-      item !== null &&
-      'subject' in item &&
-      typeof (item as { subject: unknown }).subject === 'string' &&
-      'body' in item &&
-      typeof (item as { body: unknown }).body === 'string'
+  return sequence.every(isValidSequenceItem);
+}
+
+function isValidSequenceItem(item: unknown): boolean {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'seq_number' in item &&
+    typeof (item as { seq_number: unknown }).seq_number === 'number' &&
+    'seq_delay_details' in item &&
+    typeof (item as { seq_delay_details: unknown }).seq_delay_details === 'object' &&
+    (item as { seq_delay_details: unknown }).seq_delay_details !== null &&
+    'delay_in_days' in (item as { seq_delay_details: { delay_in_days: unknown } }).seq_delay_details &&
+    typeof (item as { seq_delay_details: { delay_in_days: unknown } }).seq_delay_details.delay_in_days === 'number' &&
+    'variant_distribution_type' in item &&
+    typeof (item as { variant_distribution_type: unknown }).variant_distribution_type === 'string' &&
+    'seq_variants' in item &&
+    Array.isArray((item as { seq_variants: unknown[] }).seq_variants) &&
+    (item as { seq_variants: unknown[] }).seq_variants.every(
+      (variant) =>
+        typeof variant === 'object' &&
+        variant !== null &&
+        'subject' in variant &&
+        typeof (variant as { subject: unknown }).subject === 'string' &&
+        'email_body' in variant &&
+        typeof (variant as { email_body: unknown }).email_body === 'string' &&
+        'variant_label' in variant &&
+        typeof (variant as { variant_label: unknown }).variant_label === 'string'
+    )
   );
 }
 
@@ -472,7 +546,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         try {
           const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}`, scheduleParams),
+            async () => apiClient.post(`/campaigns/${campaign_id}/schedule`, scheduleParams),
             'update campaign schedule'
           );
 
@@ -509,7 +583,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         try {
           const response = await withRetry(
-            async () => apiClient.patch(`/campaigns/${campaign_id}`, settingsParams),
+            async () => apiClient.post(`/campaigns/${campaign_id}/settings`, settingsParams),
             'update campaign settings'
           );
 
@@ -616,7 +690,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         try {
           const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}/sequence`, { sequence }),
+            async () => apiClient.post(`/campaigns/${campaign_id}/sequences`, { sequences: sequence }),
             'save campaign sequence'
           );
 
