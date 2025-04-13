@@ -1,404 +1,36 @@
 #!/usr/bin/env node
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
-  Tool,
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ErrorCode,
-  McpError,
+  InitializeRequestSchema,
+  InitializedNotificationSchema,
+  ServerCapabilities
 } from '@modelcontextprotocol/sdk/types.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
 
+// Import our modular components
+import { campaignTools } from './tools/campaign.js';
+import { handleCampaignTool } from './handlers/campaign.js';
+import { enabledCategories } from './config/feature-config.js';
+import { ToolCategory } from './types/common.js';
+import { toolRegistry } from './registry/tool-registry.js';
+
 dotenv.config();
 
-// Tool definitions
-const CREATE_CAMPAIGN_TOOL: Tool = {
-  name: 'smartlead_create_campaign',
-  description: 'Create a new campaign in Smartlead.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      name: {
-        type: 'string',
-        description: 'Name of the campaign',
-      },
-      client_id: {
-        type: 'number',
-        description: 'Client ID for the campaign',
-      },
-    },
-    required: ['name'],
+// Define server capabilities
+const serverCapabilities: ServerCapabilities = {
+  tools: {
+    callTool: true,
+    listTools: true
   },
-};
-
-const UPDATE_CAMPAIGN_SCHEDULE_TOOL: Tool = {
-  name: 'smartlead_update_campaign_schedule',
-  description: 'Update a campaign\'s schedule settings.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      campaign_id: {
-        type: 'number',
-        description: 'ID of the campaign to update',
-      },
-      timezone: {
-        type: 'string',
-        description: 'Timezone for the campaign (e.g., "America/Los_Angeles")',
-      },
-      days_of_the_week: {
-        type: 'array',
-        items: { type: 'number' },
-        description: 'Days of the week to send emails (1-7, where 1 is Monday)',
-      },
-      start_hour: {
-        type: 'string',
-        description: 'Start hour in 24-hour format (e.g., "09:00")',
-      },
-      end_hour: {
-        type: 'string',
-        description: 'End hour in 24-hour format (e.g., "17:00")',
-      },
-      min_time_btw_emails: {
-        type: 'number',
-        description: 'Minimum time between emails in minutes',
-      },
-      max_new_leads_per_day: {
-        type: 'number',
-        description: 'Maximum number of new leads per day',
-      },
-      schedule_start_time: {
-        type: 'string',
-        description: 'Schedule start time in ISO format',
-      },
-    },
-    required: ['campaign_id'],
-  },
-};
-
-const UPDATE_CAMPAIGN_SETTINGS_TOOL: Tool = {
-  name: 'smartlead_update_campaign_settings',
-  description: 'Update a campaign\'s general settings.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      campaign_id: {
-        type: 'number',
-        description: 'ID of the campaign to update',
-      },
-      name: {
-        type: 'string',
-        description: 'New name for the campaign',
-      },
-      status: {
-        type: 'string',
-        enum: ['active', 'paused', 'completed'],
-        description: 'Status of the campaign',
-      },
-      settings: {
-        type: 'object',
-        description: 'Additional campaign settings',
-      },
-    },
-    required: ['campaign_id'],
-  },
-};
-
-const UPDATE_CAMPAIGN_STATUS_TOOL: Tool = {
-  name: 'smartlead_update_campaign_status',
-  description: 'Update the status of a campaign. Use this specifically for changing a campaign\'s status.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      campaign_id: {
-        type: 'number',
-        description: 'ID of the campaign to update the status for',
-      },
-      status: {
-        type: 'string',
-        enum: ['PAUSED', 'STOPPED', 'START'],
-        description: 'New status for the campaign (must be in uppercase)',
-      },
-    },
-    required: ['campaign_id', 'status'],
-  },
-};
-
-const GET_CAMPAIGN_TOOL: Tool = {
-  name: 'smartlead_get_campaign',
-  description: 'Get details of a specific campaign by ID.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      campaign_id: {
-        type: 'number',
-        description: 'ID of the campaign to retrieve',
-      },
-    },
-    required: ['campaign_id'],
-  },
-};
-
-const LIST_CAMPAIGNS_TOOL: Tool = {
-  name: 'smartlead_list_campaigns',
-  description: 'List all campaigns with optional filtering.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      status: {
-        type: 'string',
-        enum: ['active', 'paused', 'completed'],
-        description: 'Filter campaigns by status',
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum number of campaigns to return',
-      },
-      offset: {
-        type: 'number',
-        description: 'Offset for pagination',
-      },
-    },
-  },
-};
-
-const SAVE_CAMPAIGN_SEQUENCE_TOOL: Tool = {
-  name: 'smartlead_save_campaign_sequence',
-  description: 'Save a sequence of emails for a campaign.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      campaign_id: {
-        type: 'number',
-        description: 'ID of the campaign',
-      },
-      sequence: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            seq_number: {
-              type: 'number',
-              description: 'The sequence number (order) of this email',
-            },
-            seq_delay_details: {
-              type: 'object',
-              properties: {
-                delay_in_days: {
-                  type: 'number',
-                  description: 'Days to wait before sending this email',
-                }
-              },
-              description: 'Delay details for this sequence'
-            },
-            variant_distribution_type: {
-              type: 'string',
-              enum: ['MANUAL_EQUAL', 'MANUAL_PERCENTAGE', 'AI_EQUAL'],
-              description: 'How to distribute variants'
-            },
-            lead_distribution_percentage: {
-              type: 'number',
-              description: 'What sample % size of the lead pool to use to find the winner (for AI_EQUAL)'
-            },
-            winning_metric_property: {
-              type: 'string',
-              enum: ['OPEN_RATE', 'CLICK_RATE', 'REPLY_RATE', 'POSITIVE_REPLY_RATE'],
-              description: 'Metric to use for determining the winning variant (for AI_EQUAL)'
-            },
-            seq_variants: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  subject: {
-                    type: 'string',
-                    description: 'Email subject line',
-                  },
-                  email_body: {
-                    type: 'string',
-                    description: 'Email body content in HTML',
-                  },
-                  variant_label: {
-                    type: 'string',
-                    description: 'Label for this variant (A, B, C, etc.)',
-                  },
-                  variant_distribution_percentage: {
-                    type: 'number',
-                    description: 'Percentage of leads to receive this variant (for MANUAL_PERCENTAGE)'
-                  }
-                },
-                required: ['subject', 'email_body', 'variant_label'],
-              },
-              description: 'Variants of the email in this sequence'
-            }
-          },
-          required: ['seq_number', 'seq_delay_details', 'variant_distribution_type', 'seq_variants'],
-        },
-        description: 'Sequence of emails to send',
-      },
-    },
-    required: ['campaign_id', 'sequence'],
-  },
-};
-
-// Type definitions
-interface CreateCampaignParams {
-  name: string;
-  client_id?: number;
-}
-
-interface UpdateCampaignScheduleParams {
-  campaign_id: number;
-  timezone?: string;
-  days_of_the_week?: number[];
-  start_hour?: string;
-  end_hour?: string;
-  min_time_btw_emails?: number;
-  max_new_leads_per_day?: number;
-  schedule_start_time?: string;
-}
-
-interface UpdateCampaignSettingsParams {
-  campaign_id: number;
-  name?: string;
-  status?: 'active' | 'paused' | 'completed';
-  settings?: Record<string, any>;
-}
-
-interface UpdateCampaignStatusParams {
-  campaign_id: number;
-  status: 'PAUSED' | 'STOPPED' | 'START';
-}
-
-interface GetCampaignParams {
-  campaign_id: number;
-}
-
-interface ListCampaignsParams {
-  status?: 'active' | 'paused' | 'completed';
-  limit?: number;
-  offset?: number;
-}
-
-interface SaveCampaignSequenceParams {
-  campaign_id: number;
-  sequence: Array<{
-    seq_number: number;
-    seq_delay_details: {
-      delay_in_days: number;
-    };
-    variant_distribution_type: 'MANUAL_EQUAL' | 'MANUAL_PERCENTAGE' | 'AI_EQUAL';
-    lead_distribution_percentage?: number;
-    winning_metric_property?: 'OPEN_RATE' | 'CLICK_RATE' | 'REPLY_RATE' | 'POSITIVE_REPLY_RATE';
-    seq_variants: Array<{
-      subject: string;
-      email_body: string;
-      variant_label: string;
-      id?: number;
-      variant_distribution_percentage?: number;
-    }>;
-  }>;
-}
-
-// Type guards
-function isCreateCampaignParams(args: unknown): args is CreateCampaignParams {
-  return (
-    typeof args === 'object' &&
-    args !== null &&
-    'name' in args &&
-    typeof (args as { name: unknown }).name === 'string'
-  );
-}
-
-function isUpdateCampaignScheduleParams(args: unknown): args is UpdateCampaignScheduleParams {
-  return (
-    typeof args === 'object' &&
-    args !== null &&
-    'campaign_id' in args &&
-    typeof (args as { campaign_id: unknown }).campaign_id === 'number'
-  );
-}
-
-function isUpdateCampaignSettingsParams(args: unknown): args is UpdateCampaignSettingsParams {
-  return (
-    typeof args === 'object' &&
-    args !== null &&
-    'campaign_id' in args &&
-    typeof (args as { campaign_id: unknown }).campaign_id === 'number'
-  );
-}
-
-function isUpdateCampaignStatusParams(args: unknown): args is UpdateCampaignStatusParams {
-  return (
-    typeof args === 'object' &&
-    args !== null &&
-    'campaign_id' in args &&
-    typeof (args as { campaign_id: unknown }).campaign_id === 'number' &&
-    'status' in args &&
-    typeof (args as { status: unknown }).status === 'string' &&
-    ['PAUSED', 'STOPPED', 'START'].includes((args as { status: string }).status)
-  );
-}
-
-function isGetCampaignParams(args: unknown): args is GetCampaignParams {
-  return (
-    typeof args === 'object' &&
-    args !== null &&
-    'campaign_id' in args &&
-    typeof (args as { campaign_id: unknown }).campaign_id === 'number'
-  );
-}
-
-function isListCampaignsParams(args: unknown): args is ListCampaignsParams {
-  return typeof args === 'object' && args !== null;
-}
-
-function isSaveCampaignSequenceParams(args: unknown): args is SaveCampaignSequenceParams {
-  if (
-    typeof args !== 'object' ||
-    args === null ||
-    !('campaign_id' in args) ||
-    typeof (args as { campaign_id: unknown }).campaign_id !== 'number' ||
-    !('sequence' in args) ||
-    !Array.isArray((args as { sequence: unknown }).sequence)
-  ) {
-    return false;
+  logging: {
+    loggingMessage: true
   }
-
-  const sequence = (args as { sequence: unknown[] }).sequence;
-  return sequence.every(isValidSequenceItem);
-}
-
-function isValidSequenceItem(item: unknown): boolean {
-  return (
-    typeof item === 'object' &&
-    item !== null &&
-    'seq_number' in item &&
-    typeof (item as { seq_number: unknown }).seq_number === 'number' &&
-    'seq_delay_details' in item &&
-    typeof (item as { seq_delay_details: unknown }).seq_delay_details === 'object' &&
-    (item as { seq_delay_details: unknown }).seq_delay_details !== null &&
-    'delay_in_days' in (item as { seq_delay_details: { delay_in_days: unknown } }).seq_delay_details &&
-    typeof (item as { seq_delay_details: { delay_in_days: unknown } }).seq_delay_details.delay_in_days === 'number' &&
-    'variant_distribution_type' in item &&
-    typeof (item as { variant_distribution_type: unknown }).variant_distribution_type === 'string' &&
-    'seq_variants' in item &&
-    Array.isArray((item as { seq_variants: unknown[] }).seq_variants) &&
-    (item as { seq_variants: unknown[] }).seq_variants.every(
-      (variant) =>
-        typeof variant === 'object' &&
-        variant !== null &&
-        'subject' in variant &&
-        typeof (variant as { subject: unknown }).subject === 'string' &&
-        'email_body' in variant &&
-        typeof (variant as { email_body: unknown }).email_body === 'string' &&
-        'variant_label' in variant &&
-        typeof (variant as { variant_label: unknown }).variant_label === 'string'
-    )
-  );
-}
+};
 
 // Server implementation
 const server = new Server(
@@ -407,10 +39,8 @@ const server = new Server(
     version: '1.0.0',
   },
   {
-    capabilities: {
-      tools: {},
-      logging: {},
-    },
+    capabilities: serverCapabilities,
+    instructions: 'Smartlead MCP Server for accessing Smartlead API functionality'
   }
 );
 
@@ -445,7 +75,7 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-let isStdioTransport = false;
+let isStdioTransport = true;
 
 function safeLog(
   level:
@@ -459,14 +89,27 @@ function safeLog(
     | 'emergency',
   data: any
 ): void {
-  if (isStdioTransport) {
-    // For stdio transport, log to stderr to avoid protocol interference
-    console.error(
-      `[${level}] ${typeof data === 'object' ? JSON.stringify(data) : data}`
-    );
-  } else {
-    // For other transport types, use the normal logging mechanism
-    server.sendLoggingMessage({ level, data });
+  try {
+    // Always log to stderr for now to avoid protocol interference
+    const logMessage = typeof data === 'object' ? JSON.stringify(data) : data;
+    console.error(`[${level}] ${logMessage}`);
+    
+    // Try to send via proper logging mechanism, but don't throw if it fails
+    try {
+      server.sendLoggingMessage({ level, data }).catch(e => {
+        console.error(`Failed to send log via protocol: ${e.message}`);
+      });
+    } catch (e) {
+      console.error(`Error in logging mechanism: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } catch (e) {
+    // Last resort fallback if anything in the logging fails
+    console.error(`[${level}] Failed to format log message: ${e instanceof Error ? e.message : String(e)}`);
+    try {
+      console.error(`Original data type: ${typeof data}`);
+    } catch (_) {
+      // Ignore any errors in the fallback logging
+    }
   }
 }
 
@@ -508,18 +151,30 @@ async function withRetry<T>(
   }
 }
 
+// Register all available tools with the registry
+function registerTools() {
+  // Register campaign tools if enabled
+  if (enabledCategories.campaignManagement) {
+    toolRegistry.registerMany(campaignTools);
+  }
+  
+  // Add more categories here as they are implemented
+  // For example:
+  // if (enabledCategories.emailAccountManagement) {
+  //   toolRegistry.registerMany(emailAccountTools);
+  // }
+}
+
+// Initialize the tool registry
+registerTools();
+
 // Tool handlers
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    CREATE_CAMPAIGN_TOOL,
-    UPDATE_CAMPAIGN_SCHEDULE_TOOL,
-    UPDATE_CAMPAIGN_SETTINGS_TOOL,
-    UPDATE_CAMPAIGN_STATUS_TOOL,
-    GET_CAMPAIGN_TOOL,
-    LIST_CAMPAIGNS_TOOL,
-    SAVE_CAMPAIGN_SEQUENCE_TOOL,
-  ],
-}));
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  safeLog('info', 'Handling listTools request');
+  return {
+    tools: toolRegistry.getEnabledTools(),
+  };
+});
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const startTime = Date.now();
@@ -532,272 +187,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       `[${new Date().toISOString()}] Received request for tool: ${name}`
     );
 
-    if (!args) {
-      throw new Error('No arguments provided');
+    // Safe guard for undefined arguments
+    const toolArgs = args || {};
+
+    // Check if the tool exists and is enabled
+    if (!toolRegistry.hasToolWithName(name)) {
+      return {
+        content: [{ type: "text", text: `Unknown tool: ${name}` }],
+        isError: true,
+      };
     }
 
-    switch (name) {
-      case 'smartlead_create_campaign': {
-        if (!isCreateCampaignParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_create_campaign'
-          );
-        }
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.post('/campaigns/create', args),
-            'create campaign'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
+    let toolResponse;
+    
+    // Handle tool based on category
+    if (name.startsWith('smartlead_')) {
+      // Campaign management tools
+      if (enabledCategories.campaignManagement && toolRegistry.isToolInCategory(name, ToolCategory.CAMPAIGN_MANAGEMENT)) {
+        toolResponse = await handleCampaignTool(name, toolArgs, apiClient, withRetry);
+        
+        // Debug logging - write response to stderr for debugging
+        safeLog('info', `Tool response for ${name}: ${JSON.stringify(toolResponse)}`);
+        
+        return toolResponse;
       }
-
-      case 'smartlead_update_campaign_schedule': {
-        if (!isUpdateCampaignScheduleParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_update_campaign_schedule'
-          );
-        }
-
-        const { campaign_id, ...scheduleParams } = args;
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}/schedule`, scheduleParams),
-            'update campaign schedule'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      case 'smartlead_update_campaign_settings': {
-        if (!isUpdateCampaignSettingsParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_update_campaign_settings'
-          );
-        }
-
-        const { campaign_id, ...settingsParams } = args;
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}/settings`, settingsParams),
-            'update campaign settings'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      case 'smartlead_update_campaign_status': {
-        if (!isUpdateCampaignStatusParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_update_campaign_status'
-          );
-        }
-
-        const { campaign_id, status } = args;
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}/status`, { status }),
-            'update campaign status'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      case 'smartlead_get_campaign': {
-        if (!isGetCampaignParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_get_campaign'
-          );
-        }
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.get(`/campaigns/${args.campaign_id}`),
-            'get campaign'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      case 'smartlead_list_campaigns': {
-        if (!isListCampaignsParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_list_campaigns'
-          );
-        }
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.get('/campaigns', { params: args }),
-            'list campaigns'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      case 'smartlead_save_campaign_sequence': {
-        if (!isSaveCampaignSequenceParams(args)) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            'Invalid arguments for smartlead_save_campaign_sequence'
-          );
-        }
-
-        const { campaign_id, sequence } = args;
-
-        try {
-          const response = await withRetry(
-            async () => apiClient.post(`/campaigns/${campaign_id}/sequences`, { sequences: sequence }),
-            'save campaign sequence'
-          );
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(response.data, null, 2),
-              },
-            ],
-            isError: false,
-          };
-        } catch (error) {
-          const errorMessage = axios.isAxiosError(error)
-            ? `API Error: ${error.response?.data?.message || error.message}`
-            : `Error: ${error instanceof Error ? error.message : String(error)}`;
-
-          return {
-            content: [{ type: 'text', text: errorMessage }],
-            isError: true,
-          };
-        }
-      }
-
-      default:
-        return {
-          content: [
-            { type: 'text', text: `Unknown tool: ${name}` },
-          ],
-          isError: true,
-        };
+      
+      // Add handlers for other categories as they are implemented
     }
+
+    // If we reach here, the tool was found but handling is not implemented
+    return {
+      content: [
+        { type: "text", text: `Tool ${name} is known but handling is not implemented` },
+      ],
+      isError: true,
+    };
   } catch (error) {
     // Log detailed error information
     safeLog('error', {
@@ -812,7 +236,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return {
       content: [
         {
-          type: 'text',
+          type: "text",
           text: `Error: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
@@ -824,22 +248,66 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// Initialize handler (part of the protocol)
+server.setRequestHandler(InitializeRequestSchema, async (request) => {
+  safeLog('info', `Handling initialize request from ${request.params.clientInfo?.name || 'unknown client'}`);
+  console.error(`[DEBUG] Initialize request received: ${JSON.stringify(request.params, null, 2)}`);
+  
+  // Respond with our server info and capabilities
+  const response = {
+    serverInfo: {
+      name: 'smartlead-mcp',
+      version: '1.0.0',
+    },
+    capabilities: serverCapabilities,
+    instructions: 'Smartlead MCP Server for accessing Smartlead API functionality',
+    protocolVersion: request.params.protocolVersion || '2024-11-05'
+  };
+  
+  console.error(`[DEBUG] Sending initialize response: ${JSON.stringify(response, null, 2)}`);
+  return response;
+});
+
+// Initialized notification (part of the protocol)
+server.setNotificationHandler(InitializedNotificationSchema, () => {
+  safeLog('info', 'Client initialized - ready to handle requests');
+  console.error('[DEBUG] Received initialized notification from client');
+});
+
 // Server startup
 async function runServer() {
   try {
     console.error('Initializing Smartlead MCP Server...');
 
+    // Use standard stdio transport directly
     const transport = new StdioServerTransport();
+    
+    console.error('Running in stdio mode, logging will be directed to stderr');
 
-    // Detect if we're using stdio transport
-    isStdioTransport = transport instanceof StdioServerTransport;
-    if (isStdioTransport) {
-      console.error(
-        'Running in stdio mode, logging will be directed to stderr'
-      );
-    }
+    // Set up error handling
+    process.on('uncaughtException', (error) => {
+      console.error(`[FATAL] Uncaught exception: ${error.message}`);
+      console.error(error.stack);
+      // Don't exit - just log the error
+    });
 
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error(`[FATAL] Unhandled promise rejection: ${reason}`);
+      // Don't exit - just log the error
+    });
+
+    // Add transport error handler
+    transport.onerror = (error) => {
+      console.error(`[ERROR] Transport error: ${error.message}`);
+    };
+
+    // Connect to the transport
     await server.connect(transport);
+
+    // Set onclose handler
+    transport.onclose = () => {
+      console.error('[INFO] Transport was closed. This should only happen when the process is shutting down.');
+    };
 
     // Now that we're connected, we can send logging messages
     safeLog('info', 'Smartlead MCP Server initialized successfully');
@@ -847,8 +315,22 @@ async function runServer() {
       'info',
       `Configuration: API URL: ${SMARTLEAD_API_URL}`
     );
+    
+    // Log which categories are enabled
+    const enabledCats = Object.entries(enabledCategories)
+      .filter(([_, enabled]) => enabled)
+      .map(([cat]) => cat)
+      .join(', ');
+    safeLog('info', `Enabled categories: ${enabledCats}`);
+    
+    // Log the number of enabled tools
+    const enabledToolsCount = toolRegistry.getEnabledTools().length;
+    safeLog('info', `Enabled tools: ${enabledToolsCount}`);
 
     console.error('Smartlead MCP Server running on stdio');
+    
+    // Keep the process running
+    process.stdin.resume();
   } catch (error) {
     console.error('Fatal error running server:', error);
     process.exit(1);
@@ -858,4 +340,4 @@ async function runServer() {
 runServer().catch((error: any) => {
   console.error('Fatal error running server:', error);
   process.exit(1);
-});
+}); 
