@@ -1,7 +1,7 @@
 // Configuration for enabling/disabling feature categories
 export const enabledCategories = {
-  campaignManagement: true,
-  emailAccountManagement: false,
+  campaignManagement: false,
+  emailAccountManagement: true,
   leadManagement: false,
   campaignStatistics: false,
   smartDelivery: false,

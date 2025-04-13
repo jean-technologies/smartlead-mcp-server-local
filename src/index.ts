@@ -14,7 +14,9 @@ import dotenv from 'dotenv';
 
 // Import our modular components
 import { campaignTools } from './tools/campaign.js';
+import { emailTools } from './tools/email.js';
 import { handleCampaignTool } from './handlers/campaign.js';
+import { handleEmailTool } from './handlers/email.js';
 import { enabledCategories } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
@@ -158,6 +160,11 @@ function registerTools() {
     toolRegistry.registerMany(campaignTools);
   }
   
+  // Register email account tools if enabled
+  if (enabledCategories.emailAccountManagement) {
+    toolRegistry.registerMany(emailTools);
+  }
+  
   // Add more categories here as they are implemented
   // For example:
   // if (enabledCategories.emailAccountManagement) {
@@ -198,30 +205,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    let toolResponse;
+    // Get the tool details to determine which handler to use
+    const tool = toolRegistry.getByName(name);
     
-    // Handle tool based on category
-    if (name.startsWith('smartlead_')) {
-      // Campaign management tools
-      if (enabledCategories.campaignManagement && toolRegistry.isToolInCategory(name, ToolCategory.CAMPAIGN_MANAGEMENT)) {
-        toolResponse = await handleCampaignTool(name, toolArgs, apiClient, withRetry);
-        
-        // Debug logging - write response to stderr for debugging
-        safeLog('info', `Tool response for ${name}: ${JSON.stringify(toolResponse)}`);
-        
-        return toolResponse;
-      }
-      
-      // Add handlers for other categories as they are implemented
+    if (!tool) {
+      return {
+        content: [{ type: "text", text: `Tool ${name} not found in registry` }],
+        isError: true,
+      };
     }
 
-    // If we reach here, the tool was found but handling is not implemented
-    return {
-      content: [
-        { type: "text", text: `Tool ${name} is known but handling is not implemented` },
-      ],
-      isError: true,
-    };
+    // Call the appropriate handler based on tool category
+    switch (tool.category) {
+      case ToolCategory.CAMPAIGN_MANAGEMENT:
+        return await handleCampaignTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.EMAIL_ACCOUNT_MANAGEMENT:
+        return await handleEmailTool(name, toolArgs, apiClient, withRetry);
+      default:
+        return {
+          content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],
+          isError: true,
+        };
+    }
   } catch (error) {
     // Log detailed error information
     safeLog('error', {
