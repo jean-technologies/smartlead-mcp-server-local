@@ -19,12 +19,16 @@ import { leadTools } from './tools/lead.js';
 import { statisticsTools } from './tools/statistics.js';
 import { smartDeliveryTools } from './tools/smartDelivery.js';
 import { webhookTools } from './tools/webhooks.js';
+import { clientManagementTools } from './tools/clientManagement.js';
+import { smartSendersTools } from './tools/smartSenders.js';
 import { handleCampaignTool } from './handlers/campaign.js';
 // import { handleEmailTool } from './handlers/email.js';
 import { handleLeadTool } from './handlers/lead.js';
 import { handleStatisticsTool } from './handlers/statistics.js';
 import { handleSmartDeliveryTool } from './handlers/smartDelivery.js';
 import { handleWebhookTool } from './handlers/webhooks.js';
+import { handleClientManagementTool } from './handlers/clientManagement.js';
+import { handleSmartSendersTool } from './handlers/smartSenders.js';
 import { enabledCategories } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
@@ -193,6 +197,16 @@ function registerTools() {
     toolRegistry.registerMany(webhookTools);
   }
   
+  // Register client management tools if enabled
+  if (enabledCategories.clientManagement) {
+    toolRegistry.registerMany(clientManagementTools);
+  }
+  
+  // Register smart senders tools if enabled
+  if (enabledCategories.smartSenders) {
+    toolRegistry.registerMany(smartSendersTools);
+  }
+  
   // Add more categories here as they are implemented
   // For example:
   // if (enabledCategories.emailAccountManagement) {
@@ -257,6 +271,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleSmartDeliveryTool(name, toolArgs, apiClient, withRetry);
       case ToolCategory.WEBHOOKS:
         return await handleWebhookTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.CLIENT_MANAGEMENT:
+        return await handleClientManagementTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.SMART_SENDERS:
+        return await handleSmartSendersTool(name, toolArgs, apiClient, withRetry);
       default:
         return {
           content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],

@@ -6,8 +6,8 @@ export const enabledCategories = {
   campaignStatistics: false,
   smartDelivery: true,
   webhooks: true,
-  clientManagement: false,
-  smartSenders: false
+  clientManagement: true,
+  smartSenders: true
 };
 
 // Configuration for enabling/disabling individual tools
