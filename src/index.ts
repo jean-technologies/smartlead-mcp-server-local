@@ -14,9 +14,11 @@ import dotenv from 'dotenv';
 
 // Import our modular components
 import { campaignTools } from './tools/campaign.js';
-import { emailTools } from './tools/email.js';
+// import { emailTools } from './tools/email.js';
+import { leadTools } from './tools/lead.js';
 import { handleCampaignTool } from './handlers/campaign.js';
-import { handleEmailTool } from './handlers/email.js';
+// import { handleEmailTool } from './handlers/email.js';
+import { handleLeadTool } from './handlers/lead.js';
 import { enabledCategories } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
@@ -161,8 +163,13 @@ function registerTools() {
   }
   
   // Register email account tools if enabled
-  if (enabledCategories.emailAccountManagement) {
-    toolRegistry.registerMany(emailTools);
+  // if (enabledCategories.emailAccountManagement) {
+  //   toolRegistry.registerMany(emailTools);
+  // }
+  
+  // Register lead management tools if enabled
+  if (enabledCategories.leadManagement) {
+    toolRegistry.registerMany(leadTools);
   }
   
   // Add more categories here as they are implemented
@@ -219,8 +226,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (tool.category) {
       case ToolCategory.CAMPAIGN_MANAGEMENT:
         return await handleCampaignTool(name, toolArgs, apiClient, withRetry);
-      case ToolCategory.EMAIL_ACCOUNT_MANAGEMENT:
-        return await handleEmailTool(name, toolArgs, apiClient, withRetry);
+      // case ToolCategory.EMAIL_ACCOUNT_MANAGEMENT:
+      //   return await handleEmailTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.LEAD_MANAGEMENT:
+        return await handleLeadTool(name, toolArgs, apiClient, withRetry);
       default:
         return {
           content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],
