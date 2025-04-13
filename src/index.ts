@@ -16,9 +16,11 @@ import dotenv from 'dotenv';
 import { campaignTools } from './tools/campaign.js';
 // import { emailTools } from './tools/email.js';
 import { leadTools } from './tools/lead.js';
+import { statisticsTools } from './tools/statistics.js';
 import { handleCampaignTool } from './handlers/campaign.js';
 // import { handleEmailTool } from './handlers/email.js';
 import { handleLeadTool } from './handlers/lead.js';
+import { handleStatisticsTool } from './handlers/statistics.js';
 import { enabledCategories } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
@@ -172,6 +174,11 @@ function registerTools() {
     toolRegistry.registerMany(leadTools);
   }
   
+  // Register campaign statistics tools if enabled
+  if (enabledCategories.campaignStatistics) {
+    toolRegistry.registerMany(statisticsTools);
+  }
+  
   // Add more categories here as they are implemented
   // For example:
   // if (enabledCategories.emailAccountManagement) {
@@ -230,6 +237,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       //   return await handleEmailTool(name, toolArgs, apiClient, withRetry);
       case ToolCategory.LEAD_MANAGEMENT:
         return await handleLeadTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.CAMPAIGN_STATISTICS:
+        return await handleStatisticsTool(name, toolArgs, apiClient, withRetry);
       default:
         return {
           content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],
