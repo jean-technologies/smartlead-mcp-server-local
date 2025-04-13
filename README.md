@@ -1,15 +1,13 @@
 # Smartlead MCP Server
 
-A Model Context Protocol (MCP) server for Smartlead campaign management integration. This server provides tools for creating and managing campaigns, updating campaign settings, and managing campaign sequences, etc.
+A Model Context Protocol (MCP) server for Smartlead integration. This server provides tools for managing various aspects of your Smartlead account, including campaigns, leads, statistics, and smart delivery.
 
 ## Features
 
-- Create new campaigns
-- Update campaign schedule settings
-- Update campaign general settings
-- Get campaign details
-- List all campaigns with filtering options
-- Save campaign email sequences
+- **Campaign Management**: Create, update, and manage email campaigns and sequences
+- **Lead Management**: Add, update, and track leads in your campaigns
+- **Statistics**: Fetch and analyze campaign performance metrics
+- **Smart Delivery**: Optimize email delivery for better engagement (coming soon)
 
 ## Installation
 
@@ -42,12 +40,12 @@ To start the server directly:
 npm start
 ```
 
-### Integration with Claude
+### Integration with Claude or Other MCP Clients
 
-To use this MCP server with Claude, you need to add it to the MCP settings file:
+To use this MCP server with Claude or other MCP clients, you need to add it to the appropriate MCP settings file:
 
 1. For Claude VSCode extension, add it to `c:\Users\<username>\AppData\Roaming\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
-2. For Claude desktop app, add it to `%APPDATA%\Claude\claude_desktop_config.json` on Windows
+2. For Claude desktop app, add it to `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS
 
 Example configuration:
 
@@ -56,7 +54,7 @@ Example configuration:
   "mcpServers": {
     "smartlead": {
       "command": "node",
-      "args": ["E:/mcp-servers/smartlead/dist/index.js"],
+      "args": ["path/to/smartlead-mcp-server/dist/index.js"],
       "env": {
         "SMARTLEAD_API_KEY": "your_api_key_here"
       },
@@ -67,7 +65,7 @@ Example configuration:
 }
 ```
 
-Replace `your_api_key_here` with your actual Smartlead API key.
+Replace `your_api_key_here` with your actual Smartlead API key and update the path to match your installation.
 
 ## Configuration
 
@@ -80,66 +78,29 @@ The server can be configured using environment variables:
 - `SMARTLEAD_RETRY_MAX_DELAY`: Maximum delay in milliseconds for retries (default: 10000)
 - `SMARTLEAD_RETRY_BACKOFF_FACTOR`: Backoff factor for retry delays (default: 2)
 
-## Available Tools
+## Available Tool Categories
 
-### smartlead_create_campaign
+The server provides tools in the following categories:
 
-Create a new campaign in Smartlead.
+### Campaign Management
+Tools for creating and managing email campaigns, schedules, and sequences
 
-**Parameters:**
-- `name` (required): Name of the campaign
-- `client_id` (optional): Client ID for the campaign
+### Lead Management
+Tools for adding, updating, and managing leads across campaigns
 
-### smartlead_update_campaign_schedule
+### Statistics
+Tools for retrieving and analyzing campaign performance metrics
 
-Update a campaign's schedule settings.
+### Smart Delivery
+Tools for optimizing email delivery (coming soon)
 
-**Parameters:**
-- `campaign_id` (required): ID of the campaign to update
-- `timezone`: Timezone for the campaign (e.g., "America/Los_Angeles")
-- `days_of_the_week`: Days of the week to send emails (1-7, where 1 is Monday)
-- `start_hour`: Start hour in 24-hour format (e.g., "09:00")
-- `end_hour`: End hour in 24-hour format (e.g., "17:00")
-- `min_time_btw_emails`: Minimum time between emails in minutes
-- `max_new_leads_per_day`: Maximum number of new leads per day
-- `schedule_start_time`: Schedule start time in ISO format
+## Enabling/Disabling Features
 
-### smartlead_update_campaign_settings
+Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, only the statistics category is enabled.
 
-Update a campaign's general settings.
+## Contributing
 
-**Parameters:**
-- `campaign_id` (required): ID of the campaign to update
-- `name`: New name for the campaign
-- `status`: Status of the campaign (active, paused, completed)
-- `settings`: Additional campaign settings
-
-### smartlead_get_campaign
-
-Get details of a specific campaign by ID.
-
-**Parameters:**
-- `campaign_id` (required): ID of the campaign to retrieve
-
-### smartlead_list_campaigns
-
-List all campaigns with optional filtering.
-
-**Parameters:**
-- `status`: Filter campaigns by status (active, paused, completed, all)
-- `limit`: Maximum number of campaigns to return
-- `offset`: Offset for pagination
-
-### smartlead_save_campaign_sequence
-
-Save a sequence of emails for a campaign.
-
-**Parameters:**
-- `campaign_id` (required): ID of the campaign
-- `sequence` (required): Array of email sequence items, each with:
-  - `subject` (required): Email subject line
-  - `body` (required): Email body content
-  - `wait_days`: Days to wait before sending this email
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

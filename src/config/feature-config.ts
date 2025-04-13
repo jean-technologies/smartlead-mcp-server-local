@@ -3,9 +3,9 @@ export const enabledCategories = {
   campaignManagement: false,
   emailAccountManagement: false,
   leadManagement: false,
-  campaignStatistics: true,
-  smartDelivery: false,
-  webhooks: false,
+  campaignStatistics: false,
+  smartDelivery: true,
+  webhooks: true,
   clientManagement: false,
   smartSenders: false
 };

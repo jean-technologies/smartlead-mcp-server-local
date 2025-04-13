@@ -17,10 +17,14 @@ import { campaignTools } from './tools/campaign.js';
 // import { emailTools } from './tools/email.js';
 import { leadTools } from './tools/lead.js';
 import { statisticsTools } from './tools/statistics.js';
+import { smartDeliveryTools } from './tools/smartDelivery.js';
+import { webhookTools } from './tools/webhooks.js';
 import { handleCampaignTool } from './handlers/campaign.js';
 // import { handleEmailTool } from './handlers/email.js';
 import { handleLeadTool } from './handlers/lead.js';
 import { handleStatisticsTool } from './handlers/statistics.js';
+import { handleSmartDeliveryTool } from './handlers/smartDelivery.js';
+import { handleWebhookTool } from './handlers/webhooks.js';
 import { enabledCategories } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
@@ -179,6 +183,16 @@ function registerTools() {
     toolRegistry.registerMany(statisticsTools);
   }
   
+  // Register smart delivery tools if enabled
+  if (enabledCategories.smartDelivery) {
+    toolRegistry.registerMany(smartDeliveryTools);
+  }
+  
+  // Register webhook tools if enabled
+  if (enabledCategories.webhooks) {
+    toolRegistry.registerMany(webhookTools);
+  }
+  
   // Add more categories here as they are implemented
   // For example:
   // if (enabledCategories.emailAccountManagement) {
@@ -239,6 +253,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleLeadTool(name, toolArgs, apiClient, withRetry);
       case ToolCategory.CAMPAIGN_STATISTICS:
         return await handleStatisticsTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.SMART_DELIVERY:
+        return await handleSmartDeliveryTool(name, toolArgs, apiClient, withRetry);
+      case ToolCategory.WEBHOOKS:
+        return await handleWebhookTool(name, toolArgs, apiClient, withRetry);
       default:
         return {
           content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],
