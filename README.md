@@ -1,13 +1,16 @@
 # Smartlead MCP Server
 
-A Model Context Protocol (MCP) server for Smartlead integration. This server provides tools for managing various aspects of your Smartlead account, including campaigns, leads, statistics, and smart delivery.
+A Model Context Protocol (MCP) server for Smartlead integration. This server provides tools for managing various aspects of your Smartlead account, including campaigns, leads, statistics, smart delivery, webhooks, client management, and smart senders.
 
 ## Features
 
 - **Campaign Management**: Create, update, and manage email campaigns and sequences
 - **Lead Management**: Add, update, and track leads in your campaigns
 - **Statistics**: Fetch and analyze campaign performance metrics
-- **Smart Delivery**: Optimize email delivery for better engagement (coming soon)
+- **Smart Delivery**: Optimize email delivery with spam test automation, reporting, and analytics
+- **Webhooks**: Manage webhook integrations with external services
+- **Client Management**: Manage clients and their permissions
+- **Smart Senders**: Seamlessly search, generate, and purchase domains and mailboxes for email campaigns
 
 ## Installation
 
@@ -83,20 +86,56 @@ The server can be configured using environment variables:
 The server provides tools in the following categories:
 
 ### Campaign Management
-Tools for creating and managing email campaigns, schedules, and sequences
+Tools for creating and managing email campaigns, schedules, and sequences.
 
 ### Lead Management
-Tools for adding, updating, and managing leads across campaigns
+Tools for adding, updating, and managing leads across campaigns.
 
 ### Statistics
-Tools for retrieving and analyzing campaign performance metrics
+Tools for retrieving and analyzing campaign performance metrics.
 
 ### Smart Delivery
-Tools for optimizing email delivery (coming soon)
+Tools for optimizing email delivery through sophisticated spam testing, including:
+- Creating manual and automated placement tests
+- Retrieving regional and provider-wise reports
+- Analyzing spam filter effectiveness
+- Checking DKIM, SPF, and rDNS settings
+- Managing folders and test organization
+- Retrieving detailed content and header analysis
+
+### Webhooks
+Tools for managing webhook integrations with external services, allowing for real-time event handling.
+
+### Client Management
+Tools for managing clients and their access permissions within your Smartlead account.
+
+### Smart Senders
+Tools for streamlining email infrastructure setup, including:
+- Retrieving available domain vendors
+- Searching for available domains under $15
+- Auto-generating mailbox suggestions based on personal details
+- Placing orders for domains and mailboxes
+- Retrieving lists of purchased domains
+
+## Special API Endpoints
+
+Note that while most API endpoints use the standard Smartlead API URL (https://server.smartlead.ai/api/v1), the Smart Senders category uses a different base URL:
+
+```
+https://smart-senders.smartlead.ai/api/v1
+```
+
+This is handled automatically by the server when making requests to Smart Senders endpoints.
 
 ## Enabling/Disabling Features
 
-Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, only the statistics category is enabled.
+Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, the following categories are enabled:
+- Smart Delivery
+- Webhooks
+- Client Management
+- Smart Senders
+
+You can enable additional categories by modifying the configuration file.
 
 ## Contributing
 
