@@ -55,7 +55,12 @@ For integrating with n8n (recommended approach):
 ```bash
 # Start the server with Supergateway
 npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
+
+# For more detailed logs, use:
+DEBUG=* npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
 ```
+
+Note: If you notice connection instability issues with n8n, check the Troubleshooting section in [docs/N8N-INTEGRATION.md](docs/N8N-INTEGRATION.md).
 
 ### Integration with Claude or Other MCP Clients
 

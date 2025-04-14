@@ -150,6 +150,15 @@ If you're unable to connect:
    - Verify there are no syntax errors in your commands
    - Look for "[supergateway]" prefixed logs for specific error messages
 
+5. **Connection stability issues**: If you notice frequent disconnections or reconnections:
+   - Make sure your ngrok tunnel remains stable
+   - Try running Supergateway with the `DEBUG=*` environment variable to see more detailed logs:
+     ```bash
+     DEBUG=* npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
+     ```
+   - If n8n repeatedly connects and disconnects, check your network stability
+   - For production deployments, consider hosting both services on the same network
+
 ### Data Retrieval Issues
 
 If tools aren't returning expected data:
