@@ -405,4 +405,116 @@ async function runServer() {
 runServer().catch((error: any) => {
   console.error('Fatal error running server:', error);
   process.exit(1);
-}); 
+});
+
+// Export function to create a new server instance for use by other modules (like SSE server)
+export function createServer(): Server {
+  const server = new Server(
+    {
+      name: 'smartlead-mcp',
+      version: '1.0.0',
+    },
+    {
+      capabilities: serverCapabilities,
+      instructions: 'Smartlead MCP Server for accessing Smartlead API functionality'
+    }
+  );
+
+  // Register all the handlers
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    safeLog('info', 'Handling listTools request');
+    return {
+      tools: toolRegistry.getEnabledTools(),
+    };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    safeLog('info', `Handling callTool request for tool: ${name}`);
+    
+    // Safe guard for undefined arguments
+    const toolArgs = args || {};
+
+    // Check if the tool exists and is enabled
+    if (!toolRegistry.hasToolWithName(name)) {
+      return {
+        content: [{ type: "text", text: `Tool not found or not enabled: ${name}` }],
+        isError: true,
+      };
+    }
+
+    // Get the tool to determine its category
+    const tool = toolRegistry.getByName(name);
+
+    if (!tool) {
+      return {
+        content: [{ type: "text", text: `Tool ${name} not found in registry` }],
+        isError: true,
+      };
+    }
+
+    try {
+      // Call the appropriate handler based on tool category
+      let result;
+      switch (tool.category) {
+        case 'Campaign Management':
+          result = await handleCampaignTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Lead Management':
+          result = await handleLeadTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Campaign Statistics':
+          result = await handleStatisticsTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Smart Delivery':
+          result = await handleSmartDeliveryTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Webhooks':
+          result = await handleWebhookTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Client Management':
+          result = await handleClientManagementTool(name, toolArgs, apiClient, withRetry);
+          break;
+        case 'Smart Senders':
+          result = await handleSmartSendersTool(name, toolArgs, apiClient, withRetry);
+          break;
+        default:
+          return {
+            content: [{ type: "text", text: `No handler available for tool category: ${tool.category}` }],
+            isError: true,
+          };
+      }
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      safeLog('error', `Error calling tool ${name}: ${errorMessage}`);
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  });
+
+  server.setRequestHandler(InitializeRequestSchema, async (request) => {
+    safeLog('info', 'Handling initialize request');
+    return {
+      serverInfo: {
+        name: 'smartlead-mcp',
+        version: '1.0.0',
+      },
+      capabilities: serverCapabilities,
+      instructions: 'Smartlead MCP Server for accessing Smartlead API functionality',
+    };
+  });
+
+  server.setNotificationHandler(InitializedNotificationSchema, (notification) => {
+    if (notification.params) {
+      safeLog('info', `Received initialized notification with clientInfo: ${JSON.stringify(notification.params.clientInfo)}`);
+    }
+  });
+
+  return server;
+}
+
+// Export necessary components for other modules
+export { enabledCategories, toolRegistry }; 
