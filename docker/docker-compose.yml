@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smartlead}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Service Core - Backend API
+  service-core:
+    build:
+      context: ..
+      dockerfile: docker/service-core/Dockerfile.dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-smartlead}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-development_jwt_secret}
+      PORT: 3000
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ../managed-service/service-core:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Dashboard - Frontend UI
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/dashboard/Dockerfile.dev
+    depends_on:
+      - service-core
+    environment:
+      REACT_APP_API_URL: http://localhost:${API_PORT:-3000}
+      PORT: 8080
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - ../managed-service/dashboard:/app
+      - /app/node_modules
+    command: npm start
+
+  # Instance Manager - Docker orchestration
+  instance-manager:
+    build:
+      context: ..
+      dockerfile: docker/instance-manager/Dockerfile.dev
+    depends_on:
+      - service-core
+    environment:
+      NODE_ENV: development
+      API_URL: http://service-core:3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-smartlead}
+    volumes:
+      - ../managed-service/instance-manager:/app
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: npm run dev
+
+  # Demo MCP server instance (for testing)
+  demo-mcp:
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      SMARTLEAD_API_KEY: ${SMARTLEAD_API_KEY:-demo_key}
+      USE_SUPERGATEWAY: "true"
+      SSE_PORT: 3001
+    ports:
+      - "${DEMO_MCP_PORT:-3001}:3001"
+    volumes:
+      - ../src:/app/src
+      - /app/node_modules
+    command: npm run dev:n8n
+
+volumes:
+  postgres_data:
+  redis_data: 
