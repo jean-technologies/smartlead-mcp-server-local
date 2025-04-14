@@ -12,6 +12,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
 
+// Import Supergateway integration
+import { createSupergateway } from './supergateway.js';
+
 // Import our modular components
 import { campaignTools } from './tools/campaign.js';
 // import { emailTools } from './tools/email.js';
@@ -34,6 +37,9 @@ import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
 
 dotenv.config();
+
+// Check if Supergateway integration is enabled
+const useSupergateway = process.env.USE_SUPERGATEWAY === 'true';
 
 // Define server capabilities
 const serverCapabilities: ServerCapabilities = {
