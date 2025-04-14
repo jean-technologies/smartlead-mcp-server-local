@@ -1,6 +1,6 @@
-# Integrating with n8n
+# Integrating Smartlead MCP Server with n8n
 
-This document provides instructions for integrating the Smartlead MCP Server with n8n.
+This document provides comprehensive instructions for integrating the Smartlead MCP Server with n8n for advanced automation workflows.
 
 ## Prerequisites
 
@@ -10,68 +10,169 @@ This document provides instructions for integrating the Smartlead MCP Server wit
 
 ## Starting the MCP Server for n8n
 
-To start the MCP server in a mode compatible with n8n, use one of the following methods:
-
-### Method 1: Using npm scripts
+The recommended approach for n8n integration is to use the Supergateway package, which provides reliable SSE communication:
 
 ```bash
-npm run dev:n8n
+# Using the npm script (recommended)
+npm run start:n8n
+
+# Or using the direct command with a custom port
+npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
 ```
 
-This will build the project and start the server in n8n-compatible mode on port 3000.
+### Verifying the Server is Running
 
-### Method 2: Using the shell script
+When Supergateway starts successfully, you'll see output like:
+
+```
+[supergateway] Starting...
+[supergateway] Supergateway is supported by Supermachine (hosted MCPs) - https://supermachine.ai
+[supergateway]   - outputTransport: sse
+[supergateway]   - port: 3001
+[supergateway]   - stdio: USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js
+[supergateway]   - ssePath: /sse
+[supergateway]   - messagePath: /message
+[supergateway] Listening on port 3001
+[supergateway] SSE endpoint: http://localhost:3001/sse
+[supergateway] POST messages: http://localhost:3001/message
+```
+
+You can test the connection with curl:
 
 ```bash
-chmod +x scripts/start-n8n-compatible.sh
-./scripts/start-n8n-compatible.sh
+curl -N http://localhost:3001/sse
 ```
 
-## Connecting from n8n
+Which should return:
+```
+event: endpoint
+data: /message?sessionId=<some-session-id>
+```
+
+## Configuring n8n Connection
+
+### Direct Local Connection
 
 1. In your n8n workflow, add a new "Model Context Protocol Client" node
-2. Set the connection mode to "HTTP" 
-3. Enter the server URL as `http://localhost:3000/sse`
-4. If you're using a public URL via ngrok or similar, use that URL instead
+2. Set the connection mode to "HTTP"
+3. Enter the server URL: `http://localhost:3001/sse`
+4. Click "Test Connection" to verify connectivity
+
+### Public Connection Using ngrok
+
+For remote connections or when using n8n cloud:
+
+1. Install ngrok if you haven't already:
+   ```bash
+   npm install -g ngrok
+   ```
+
+2. Start your MCP server using the command above
+
+3. In a separate terminal, create a secure tunnel to your local server:
+   ```bash
+   ngrok http 3001
+   ```
+
+4. Copy the HTTPS URL provided by ngrok (e.g., `https://abc123.ngrok-free.app`)
+
+5. In n8n, use this URL with the SSE endpoint:
+   ```
+   https://abc123.ngrok-free.app/sse
+   ```
+
+## Available Tools
+
+By default, the following tool categories are enabled:
+- Campaign Management
+- Email Account Management
+- Lead Management
+- Campaign Statistics
+- Smart Delivery
+- Webhooks
+- Client Management
+- Smart Senders
+
+To view all available tools and their schemas:
+
+1. Add an "MCP Tool Execution" node to your workflow
+2. Connect it to the MCP Client node
+3. In the Tool Selection dropdown, you'll see all available tools
+
+## Building a Basic Workflow
+
+Example: List Campaigns workflow
+
+1. Add a "Model Context Protocol Client" node and connect to your server
+2. Add an "MCP Tool Execution" node
+3. Select the "smartlead_list_campaigns" tool
+4. Configure parameters (optional):
+   - limit: 10 (to limit results)
+5. Connect to a "Set" node to transform the data as needed
+6. Test the workflow to see campaign data
+
+## Example Workflow: Export Campaign Leads
+
+1. Configure MCP Client node to connect to your server
+2. Add MCP Tool Execution node
+3. Select "smartlead_export_campaign_leads" tool
+4. Configure parameters:
+   - campaign_id: 12345 (replace with your actual campaign ID)
+5. Connect to a "HTTP Request" node to download the exported file
+6. Test the workflow
 
 ## Troubleshooting
 
-### CORS Issues
+### Connection Issues
 
-If you encounter CORS issues, make sure the `CORS_ORIGIN` environment variable is set properly:
+If you're unable to connect:
 
-```bash
-CORS_ORIGIN="*" npm run start:n8n
+1. **Check server status**: Ensure the MCP server is running and look for any error messages in the terminal
+
+2. **Port conflicts**: If you see "address already in use" errors, try:
+   ```bash
+   # Find process using port 3001
+   lsof -i :3001
+   # Kill the process
+   kill -9 <PID>
+   # Or use a different port
+   npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3002
+   ```
+
+3. **API key issues**: Ensure your SMARTLEAD_API_KEY is properly set in the .env file:
+   ```
+   SMARTLEAD_API_KEY=your_api_key_here
+   ```
+
+4. **Supergateway issues**: If you see errors with Supergateway:
+   - Make sure only one instance of the server is running
+   - Check that the Supergateway package is installed
+   - Verify there are no syntax errors in your commands
+   - Look for "[supergateway]" prefixed logs for specific error messages
+
+### Data Retrieval Issues
+
+If tools aren't returning expected data:
+
+1. **API limitations**: Some operations may be limited by your Smartlead account permissions
+2. **Error messages**: Check the response content for error details
+3. **Parameter validation**: Ensure you're providing valid parameters for each tool (like valid campaign_id values)
+
+## Environment Variables
+
+Create a `.env` file with:
+
+```
+# Required
+SMARTLEAD_API_KEY=your_api_key_here
+
+# Optional - Server configuration
+SMARTLEAD_API_URL=https://server.smartlead.ai/api/v1
 ```
 
-Or for specific domains:
+## Getting Help
 
-```bash
-CORS_ORIGIN="https://your-n8n-domain.com" npm run start:n8n
-```
-
-### Connection Timeouts
-
-If connections are timing out:
-
-1. Check that your server is running and accessible
-2. Ensure no firewalls are blocking the connection
-3. Try using a tool like ngrok to expose your local server:
-
-```bash
-ngrok http 3000
-```
-
-Then use the ngrok URL in n8n.
-
-## Using Tools from n8n
-
-Once connected, you can use the "MCP Tool Execution" node in n8n to call any of the tools provided by the Smartlead MCP server. 
-
-Example workflow:
-
-1. Start with a trigger node (HTTP Request, Schedule, etc.)
-2. Connect to "MCP Tool Execution" node
-3. Select the tool you want to use (e.g., "list_campaigns")
-4. Configure the tool parameters
-5. Connect to subsequent nodes to process the results 
+If you encounter persistent issues:
+1. Check the server logs for detailed error messages
+2. Make sure your Smartlead API key is valid and has the necessary permissions
+3. Read through this guide again to ensure all steps were followed 

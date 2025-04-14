@@ -278,11 +278,59 @@ async function handleListCampaigns(
   }
 
   try {
+    console.log('[DEBUG] Calling list campaigns API with params:', JSON.stringify(args, null, 2));
+    console.log('[DEBUG] API URL:', apiClient.defaults.baseURL);
+    console.log('[DEBUG] API Key in params:', apiClient.defaults.params?.api_key);
+    
+    // Extract API key from apiClient or environment variables
+    const apiKey = apiClient.defaults.params?.api_key || process.env.SMARTLEAD_API_KEY;
+    
+    // Create a modified params object, removing any potential 'status' parameter
+    // Use a type assertion to handle any properties that may still be in the args object
+    const modifiedParams = { ...args };
+    const anyParams = modifiedParams as any;
+    
+    // The API doesn't accept status, so remove it if present
+    if (anyParams.status !== undefined) {
+      console.log('[DEBUG] Removing unsupported "status" parameter');
+      delete anyParams.status;
+    }
+    
+    // Make sure we're using the right endpoint format
     const response = await withRetry(
-      async () => apiClient.get('/campaigns', { params: args }),
+      async () => {
+        try {
+          // Create a combined params object that includes the api_key and modified user params
+          const combinedParams = {
+            ...modifiedParams,
+            api_key: apiKey
+          };
+          
+          // Log the full request
+          console.log('[DEBUG] Making request to:', `/campaigns`, 'with params:', JSON.stringify(combinedParams, null, 2));
+          
+          const result = await apiClient.get('/campaigns', { params: combinedParams });
+          
+          // Log response success
+          console.log('[DEBUG] Received API response:', result.status, result.statusText);
+          return result;
+        } catch (reqError: any) {
+          // Log request error details
+          console.error('[DEBUG] Request error details:', {
+            status: reqError.response?.status,
+            statusText: reqError.response?.statusText,
+            errorMessage: reqError.message,
+            responseData: reqError.response?.data
+          });
+          throw reqError;
+        }
+      },
       'list campaigns'
     );
 
+    // Log successful data
+    console.log('[DEBUG] List campaigns successful, returning data');
+    
     return {
       content: [
         {
@@ -293,10 +341,23 @@ async function handleListCampaigns(
       isError: false,
     };
   } catch (error: any) {
+    // Create a more detailed error message
+    const errorDetails = {
+      message: error.message,
+      response: error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      } : 'No response data',
+      request: error.request ? 'Request was made but no response received' : 'No request was made'
+    };
+    
+    console.error('[ERROR] List campaigns error:', JSON.stringify(errorDetails, null, 2));
+    
     return {
       content: [{ 
         type: 'text', 
-        text: `API Error: ${error.response?.data?.message || error.message}` 
+        text: `API Error: ${error.response?.data?.message || error.message}\n\nDetails: ${JSON.stringify(errorDetails, null, 2)}` 
       }],
       isError: true,
     };

@@ -12,12 +12,8 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
 
-// Import Supergateway integration
-import { createSupergateway } from './supergateway.js';
-
 // Import our modular components
 import { campaignTools } from './tools/campaign.js';
-// import { emailTools } from './tools/email.js';
 import { leadTools } from './tools/lead.js';
 import { statisticsTools } from './tools/statistics.js';
 import { smartDeliveryTools } from './tools/smartDelivery.js';
@@ -25,7 +21,6 @@ import { webhookTools } from './tools/webhooks.js';
 import { clientManagementTools } from './tools/clientManagement.js';
 import { smartSendersTools } from './tools/smartSenders.js';
 import { handleCampaignTool } from './handlers/campaign.js';
-// import { handleEmailTool } from './handlers/email.js';
 import { handleLeadTool } from './handlers/lead.js';
 import { handleStatisticsTool } from './handlers/statistics.js';
 import { handleSmartDeliveryTool } from './handlers/smartDelivery.js';
@@ -37,9 +32,6 @@ import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
 
 dotenv.config();
-
-// Check if Supergateway integration is enabled
-const useSupergateway = process.env.USE_SUPERGATEWAY === 'true';
 
 // Define server capabilities
 const serverCapabilities: ServerCapabilities = {
@@ -95,7 +87,46 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-let isStdioTransport = true;
+// Add request interceptor to debug all outgoing API requests
+apiClient.interceptors.request.use(function (config) {
+  // Log request details
+  console.log('[API Request]', { 
+    method: config.method?.toUpperCase(),
+    url: config.url,
+    baseURL: config.baseURL,
+    params: config.params,
+    data: config.data,
+    headers: config.headers
+  });
+  return config;
+}, function (error) {
+  console.error('[API Request Error]', error);
+  return Promise.reject(error);
+});
+
+// Add response interceptor to debug all incoming API responses
+apiClient.interceptors.response.use(function (response) {
+  // Log successful response
+  console.log('[API Response]', { 
+    status: response.status, 
+    statusText: response.statusText,
+    data: response.data ? 'Data received' : 'No data',
+    headers: response.headers
+  });
+  return response;
+}, function (error) {
+  // Log error response
+  console.error('[API Response Error]', { 
+    message: error.message,
+    response: error.response ? {
+      status: error.response.status,
+      statusText: error.response.statusText,
+      data: error.response.data
+    } : 'No response',
+    request: error.request ? 'Request was made but no response' : 'No request was made'
+  });
+  return Promise.reject(error);
+});
 
 function safeLog(
   level:
@@ -158,10 +189,7 @@ async function withRetry<T>(
         CONFIG.retry.maxDelay
       );
 
-      safeLog(
-        'warning',
-        `Rate limit hit for ${context}. Attempt ${attempt}/${CONFIG.retry.maxAttempts}. Retrying in ${delayMs}ms`
-      );
+      safeLog('info', `Rate limit hit for ${context}. Attempt ${attempt}/${CONFIG.retry.maxAttempts}. Retrying in ${delayMs}ms`);
 
       await delay(delayMs);
       return withRetry(operation, context, attempt + 1);
@@ -177,11 +205,6 @@ function registerTools() {
   if (enabledCategories.campaignManagement) {
     toolRegistry.registerMany(campaignTools);
   }
-  
-  // Register email account tools if enabled
-  // if (enabledCategories.emailAccountManagement) {
-  //   toolRegistry.registerMany(emailTools);
-  // }
   
   // Register lead management tools if enabled
   if (enabledCategories.leadManagement) {
@@ -212,309 +235,129 @@ function registerTools() {
   if (enabledCategories.smartSenders) {
     toolRegistry.registerMany(smartSendersTools);
   }
-  
-  // Add more categories here as they are implemented
-  // For example:
-  // if (enabledCategories.emailAccountManagement) {
-  //   toolRegistry.registerMany(emailAccountTools);
-  // }
 }
 
 // Initialize the tool registry
 registerTools();
 
-// Tool handlers
+// Handle listTools requests
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   safeLog('info', 'Handling listTools request');
+  
   return {
-    tools: toolRegistry.getEnabledTools(),
+    tools: toolRegistry.getEnabledTools()
   };
 });
 
+// Handle callTool requests
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const startTime = Date.now();
+  const { name, arguments: args } = request.params;
+  
+  const timestamp = new Date().toISOString();
+  safeLog('info', `[${timestamp}] Received request for tool: ${name}`);
+  
   try {
-    const { name, arguments: args } = request.params;
-
-    // Log incoming request with timestamp
-    safeLog(
-      'info',
-      `[${new Date().toISOString()}] Received request for tool: ${name}`
-    );
-
-    // Safe guard for undefined arguments
-    const toolArgs = args || {};
-
-    // Check if the tool exists and is enabled
-    if (!toolRegistry.hasToolWithName(name)) {
-      return {
-        content: [{ type: "text", text: `Unknown tool: ${name}` }],
-        isError: true,
-      };
-    }
-
-    // Get the tool details to determine which handler to use
+    // Ensure the tool exists
     const tool = toolRegistry.getByName(name);
-    
     if (!tool) {
-      return {
-        content: [{ type: "text", text: `Tool ${name} not found in registry` }],
-        isError: true,
-      };
+      throw new Error(`Tool "${name}" not found`);
     }
-
-    // Call the appropriate handler based on tool category
+    
+    // Dispatch to the appropriate handler based on tool category
     switch (tool.category) {
       case ToolCategory.CAMPAIGN_MANAGEMENT:
-        return await handleCampaignTool(name, toolArgs, apiClient, withRetry);
-      // case ToolCategory.EMAIL_ACCOUNT_MANAGEMENT:
-      //   return await handleEmailTool(name, toolArgs, apiClient, withRetry);
+        return await handleCampaignTool(name, args, apiClient, withRetry);
       case ToolCategory.LEAD_MANAGEMENT:
-        return await handleLeadTool(name, toolArgs, apiClient, withRetry);
+        return await handleLeadTool(name, args, apiClient, withRetry);
       case ToolCategory.CAMPAIGN_STATISTICS:
-        return await handleStatisticsTool(name, toolArgs, apiClient, withRetry);
+        return await handleStatisticsTool(name, args, apiClient, withRetry);
       case ToolCategory.SMART_DELIVERY:
-        return await handleSmartDeliveryTool(name, toolArgs, apiClient, withRetry);
+        return await handleSmartDeliveryTool(name, args, apiClient, withRetry);
       case ToolCategory.WEBHOOKS:
-        return await handleWebhookTool(name, toolArgs, apiClient, withRetry);
+        return await handleWebhookTool(name, args, apiClient, withRetry);
       case ToolCategory.CLIENT_MANAGEMENT:
-        return await handleClientManagementTool(name, toolArgs, apiClient, withRetry);
+        return await handleClientManagementTool(name, args, apiClient, withRetry);
       case ToolCategory.SMART_SENDERS:
-        return await handleSmartSendersTool(name, toolArgs, apiClient, withRetry);
+        return await handleSmartSendersTool(name, args, apiClient, withRetry);
       default:
-        return {
-          content: [{ type: "text", text: `Unsupported tool category: ${tool.category}` }],
-          isError: true,
-        };
+        throw new Error(`Unsupported tool category: ${tool.category}`);
     }
   } catch (error) {
-    // Log detailed error information
-    safeLog('error', {
-      message: `Request failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      tool: request.params.name,
-      arguments: request.params.arguments,
-      timestamp: new Date().toISOString(),
-      duration: Date.now() - startTime,
-    });
+    safeLog('error', `Error handling tool "${name}": ${error instanceof Error ? error.message : String(error)}`);
+    
     return {
       content: [
         {
-          type: "text",
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
+          type: 'text',
+          text: `Error calling tool "${name}": ${error instanceof Error ? error.message : String(error)}`
+        }
       ],
-      isError: true,
+      isError: true
     };
   } finally {
-    // Log request completion with performance metrics
-    safeLog('info', `Request completed in ${Date.now() - startTime}ms`);
+    safeLog('info', 'Request completed in ' + (new Date().getTime() - new Date(timestamp).getTime()) + 'ms');
   }
 });
 
-// Initialize handler (part of the protocol)
+// Handle initialization
 server.setRequestHandler(InitializeRequestSchema, async (request) => {
   safeLog('info', `Handling initialize request from ${request.params.clientInfo?.name || 'unknown client'}`);
-  console.error(`[DEBUG] Initialize request received: ${JSON.stringify(request.params, null, 2)}`);
   
-  // Respond with our server info and capabilities
+  // Log the initialize request for debugging
+  safeLog('debug', `Initialize request received: ${JSON.stringify(request.params, null, 2)}`);
+  
+  // Send the initialized response
   const response = {
     serverInfo: {
       name: 'smartlead-mcp',
-      version: '1.0.0',
+      version: '1.0.0'
     },
     capabilities: serverCapabilities,
     instructions: 'Smartlead MCP Server for accessing Smartlead API functionality',
-    protocolVersion: request.params.protocolVersion || '2024-11-05'
+    protocolVersion: request.params.protocolVersion
   };
   
-  console.error(`[DEBUG] Sending initialize response: ${JSON.stringify(response, null, 2)}`);
+  safeLog('debug', `Sending initialize response: ${JSON.stringify(response, null, 2)}`);
+  
   return response;
 });
 
-// Initialized notification (part of the protocol)
-server.setNotificationHandler(InitializedNotificationSchema, () => {
+// Handle the initialized notification
+server.setNotificationHandler(InitializedNotificationSchema, async () => {
   safeLog('info', 'Client initialized - ready to handle requests');
-  console.error('[DEBUG] Received initialized notification from client');
+  safeLog('debug', 'Received initialized notification from client');
 });
 
-// Server startup
-async function runServer() {
-  try {
-    console.error('Initializing Smartlead MCP Server...');
-
-    // Use standard stdio transport directly
-    const transport = new StdioServerTransport();
-    
-    console.error('Running in stdio mode, logging will be directed to stderr');
-
-    // Set up error handling
-    process.on('uncaughtException', (error) => {
-      console.error(`[FATAL] Uncaught exception: ${error.message}`);
-      console.error(error.stack);
-      // Don't exit - just log the error
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error(`[FATAL] Unhandled promise rejection: ${reason}`);
-      // Don't exit - just log the error
-    });
-
-    // Add transport error handler
-    transport.onerror = (error) => {
-      console.error(`[ERROR] Transport error: ${error.message}`);
-    };
-
-    // Connect to the transport
-    await server.connect(transport);
-
-    // Set onclose handler
-    transport.onclose = () => {
-      console.error('[INFO] Transport was closed. This should only happen when the process is shutting down.');
-    };
-
-    // Now that we're connected, we can send logging messages
-    safeLog('info', 'Smartlead MCP Server initialized successfully');
-    safeLog(
-      'info',
-      `Configuration: API URL: ${SMARTLEAD_API_URL}`
-    );
-    
-    // Log which categories are enabled
-    const enabledCats = Object.entries(enabledCategories)
-      .filter(([_, enabled]) => enabled)
-      .map(([cat]) => cat)
-      .join(', ');
-    safeLog('info', `Enabled categories: ${enabledCats}`);
-    
-    // Log the number of enabled tools
-    const enabledToolsCount = toolRegistry.getEnabledTools().length;
-    safeLog('info', `Enabled tools: ${enabledToolsCount}`);
-
-    console.error('Smartlead MCP Server running on stdio');
-    
-    // Keep the process running
-    process.stdin.resume();
-  } catch (error) {
-    console.error('Fatal error running server:', error);
-    process.exit(1);
-  }
+// Initialize the server
+async function initServer() {
+  console.error('Initializing Smartlead MCP Server...');
+  
+  // Use stdio transport
+  console.error('Running in stdio mode, logging will be directed to stderr');
+  const transport = new StdioServerTransport();
+  
+  // Connect the server to the transport
+  await server.connect(transport);
+  
+  safeLog('info', 'Smartlead MCP Server initialized successfully');
+  safeLog('info', `Configuration: API URL: ${SMARTLEAD_API_URL}`);
+  
+  // Log enabled categories
+  const enabledCategoriesArray = Object.entries(enabledCategories)
+    .filter(([_, enabled]) => enabled)
+    .map(([category]) => category);
+  
+  safeLog('info', `Enabled categories: ${enabledCategoriesArray.join(', ')}`);
+  safeLog('info', `Enabled tools: ${toolRegistry.getEnabledTools().length}`);
+  
+  console.log('Smartlead MCP Server running on stdio');
 }
 
-runServer().catch((error: any) => {
-  console.error('Fatal error running server:', error);
+// Initialize the server when this module is executed
+initServer().catch((error) => {
+  console.error('Failed to initialize server:', error);
   process.exit(1);
 });
-
-// Export function to create a new server instance for use by other modules (like SSE server)
-export function createServer(): Server {
-  const server = new Server(
-    {
-      name: 'smartlead-mcp',
-      version: '1.0.0',
-    },
-    {
-      capabilities: serverCapabilities,
-      instructions: 'Smartlead MCP Server for accessing Smartlead API functionality'
-    }
-  );
-
-  // Register all the handlers
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    safeLog('info', 'Handling listTools request');
-    return {
-      tools: toolRegistry.getEnabledTools(),
-    };
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-    safeLog('info', `Handling callTool request for tool: ${name}`);
-    
-    // Safe guard for undefined arguments
-    const toolArgs = args || {};
-
-    // Check if the tool exists and is enabled
-    if (!toolRegistry.hasToolWithName(name)) {
-      return {
-        content: [{ type: "text", text: `Tool not found or not enabled: ${name}` }],
-        isError: true,
-      };
-    }
-
-    // Get the tool to determine its category
-    const tool = toolRegistry.getByName(name);
-
-    if (!tool) {
-      return {
-        content: [{ type: "text", text: `Tool ${name} not found in registry` }],
-        isError: true,
-      };
-    }
-
-    try {
-      // Call the appropriate handler based on tool category
-      let result;
-      switch (tool.category) {
-        case 'Campaign Management':
-          result = await handleCampaignTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Lead Management':
-          result = await handleLeadTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Campaign Statistics':
-          result = await handleStatisticsTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Smart Delivery':
-          result = await handleSmartDeliveryTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Webhooks':
-          result = await handleWebhookTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Client Management':
-          result = await handleClientManagementTool(name, toolArgs, apiClient, withRetry);
-          break;
-        case 'Smart Senders':
-          result = await handleSmartSendersTool(name, toolArgs, apiClient, withRetry);
-          break;
-        default:
-          return {
-            content: [{ type: "text", text: `No handler available for tool category: ${tool.category}` }],
-            isError: true,
-          };
-      }
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      safeLog('error', `Error calling tool ${name}: ${errorMessage}`);
-      return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  });
-
-  server.setRequestHandler(InitializeRequestSchema, async (request) => {
-    safeLog('info', 'Handling initialize request');
-    return {
-      serverInfo: {
-        name: 'smartlead-mcp',
-        version: '1.0.0',
-      },
-      capabilities: serverCapabilities,
-      instructions: 'Smartlead MCP Server for accessing Smartlead API functionality',
-    };
-  });
-
-  server.setNotificationHandler(InitializedNotificationSchema, (notification) => {
-    if (notification.params) {
-      safeLog('info', `Received initialized notification with clientInfo: ${JSON.stringify(notification.params.clientInfo)}`);
-    }
-  });
-
-  return server;
-}
 
 // Export necessary components for other modules
 export { enabledCategories, toolRegistry }; 

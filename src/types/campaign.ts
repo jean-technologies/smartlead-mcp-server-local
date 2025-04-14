@@ -37,7 +37,6 @@ export interface GetCampaignSequenceParams {
 }
 
 export interface ListCampaignsParams {
-  status?: 'active' | 'paused' | 'completed';
   limit?: number;
   offset?: number;
 }
@@ -147,7 +146,23 @@ export function isGetCampaignSequenceParams(args: unknown): args is GetCampaignS
 }
 
 export function isListCampaignsParams(args: unknown): args is ListCampaignsParams {
-  return typeof args === 'object' && args !== null;
+  if (typeof args !== 'object' || args === null) {
+    return false;
+  }
+
+  const params = args as ListCampaignsParams;
+  
+  // Optional limit must be a number if present
+  if (params.limit !== undefined && typeof params.limit !== 'number') {
+    return false;
+  }
+  
+  // Optional offset must be a number if present
+  if (params.offset !== undefined && typeof params.offset !== 'number') {
+    return false;
+  }
+  
+  return true;
 }
 
 export function isSaveCampaignSequenceParams(args: unknown): args is SaveCampaignSequenceParams {

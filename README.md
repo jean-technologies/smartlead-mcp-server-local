@@ -11,8 +11,7 @@ A Model Context Protocol (MCP) server for Smartlead integration. This server pro
 - **Webhooks**: Manage webhook integrations with external services
 - **Client Management**: Manage clients and their permissions
 - **Smart Senders**: Seamlessly search, generate, and purchase domains and mailboxes for email campaigns
-- **Supergateway Integration**: Optional integration with the Supergateway package
-- **SSE Support**: Server-Sent Events support for web-based integrations (via Supergateway)
+- **Supergateway Integration**: Streamlined integration with n8n using Supergateway
 
 ## Installation
 
@@ -39,36 +38,23 @@ npm run build
 
 ### Server Operation Modes
 
-The server can be run in several different modes:
+The server can be run in the following modes:
 
 #### Standard Mode (STDIO)
 
-The standard mode where the server communicates through standard input/output streams:
+For Claude or other AI assistants using STDIO communication:
 
 ```bash
 npm start
 ```
 
-#### With Supergateway Integration
+#### n8n Integration via Supergateway
 
-To use the Supergateway integration:
-
-```bash
-npm run start:supergateway
-```
-
-#### SSE Mode (with Supergateway)
-
-To run the server with Server-Sent Events (SSE) support using the Supergateway package:
+For integrating with n8n (recommended approach):
 
 ```bash
-npm run start:sse
-```
-
-Or with Supergateway enabled:
-
-```bash
-npm run start:sse-supergateway
+# Start the server with Supergateway
+npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
 ```
 
 ### Integration with Claude or Other MCP Clients
@@ -98,27 +84,29 @@ Example configuration:
 
 Replace `your_api_key_here` with your actual Smartlead API key and update the path to match your installation.
 
-### Integration with n8n or Other Web Clients
+### Integration with n8n
 
-For web-based integration using SSE (Server-Sent Events):
+For n8n integration using Supergateway:
 
-1. Start the server in SSE mode:
+1. Start the server with Supergateway:
 ```bash
-npm run start:sse
+npx -y supergateway --stdio "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js" --port 3001
 ```
 
 2. In n8n, add an MCP Client node and configure it to connect to:
 ```
-http://localhost:3000/sse
+http://localhost:3001/sse
 ```
 
 If you need to expose your local server to the internet, you can use a tool like ngrok:
 
 ```bash
-ngrok http 3000
+ngrok http 3001
 ```
 
-Then use the provided ngrok URL with the /sse endpoint in your web client.
+Then use the provided ngrok URL with the /sse endpoint in your n8n workflow.
+
+**For detailed n8n integration instructions, examples, and troubleshooting, see [docs/N8N-INTEGRATION.md](docs/N8N-INTEGRATION.md).**
 
 ## Configuration
 
@@ -127,31 +115,12 @@ The server can be configured using environment variables:
 ### Required Environment Variables
 - `SMARTLEAD_API_KEY`: Your Smartlead API key
 
-### Supergateway Configuration
-- `USE_SUPERGATEWAY`: Set to `true` to enable Supergateway integration
-- `SUPERGATEWAY_API_KEY`: Your Supergateway API key (required if `USE_SUPERGATEWAY` is `true`)
-
-### Optional Smartlead Configuration
+### Optional Configuration
 - `SMARTLEAD_API_URL`: Custom API URL (defaults to https://server.smartlead.ai/api/v1)
 - `SMARTLEAD_RETRY_MAX_ATTEMPTS`: Maximum retry attempts for API calls (default: 3)
 - `SMARTLEAD_RETRY_INITIAL_DELAY`: Initial delay in milliseconds for retries (default: 1000)
 - `SMARTLEAD_RETRY_MAX_DELAY`: Maximum delay in milliseconds for retries (default: 10000)
 - `SMARTLEAD_RETRY_BACKOFF_FACTOR`: Backoff factor for retry delays (default: 2)
-
-## Using the Supergateway Package for SSE
-
-The recommended approach for SSE mode is to use the Supergateway package's built-in support:
-
-```bash
-npx -y supergateway --stdio "node dist/index.js" --port 3000
-```
-
-This approach:
-1. Runs your MCP server in stdio mode
-2. Creates an HTTP server that exposes your MCP server over SSE
-3. Handles all session management and message routing automatically
-
-This is cleaner and more reliable than custom SSE implementations.
 
 ## Available Tool Categories
 
@@ -201,13 +170,7 @@ This is handled automatically by the server when making requests to Smart Sender
 
 ## Enabling/Disabling Features
 
-Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, the following categories are enabled:
-- Smart Delivery
-- Webhooks
-- Client Management
-- Smart Senders
-
-You can enable additional categories by modifying the configuration file.
+Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, all categories are enabled. You can disable specific categories by modifying the configuration file.
 
 ## Contributing
 

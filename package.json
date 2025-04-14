@@ -15,14 +15,8 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:supergateway": "node test_supergateway.js",
     "start": "node dist/index.js",
-    "start:supergateway": "USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js",
-    "start:sse": "npx -y supergateway --stdio \"node dist/index.js\" --port 3000",
-    "start:sse-supergateway": "npx -y supergateway --stdio \"USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js\" --port 3000",
-    "start:n8n": "CORS_ORIGIN=* PORT=3000 node dist/sse-server.js",
+    "start:n8n": "npx -y supergateway --stdio \"USE_SUPERGATEWAY=true SUPERGATEWAY_API_KEY=test_key node dist/index.js\" --port 3001",
     "dev": "npm run build && npm start",
-    "dev:supergateway": "npm run build && npm run start:supergateway",
-    "dev:sse": "npm run build && npm run start:sse",
-    "dev:sse-supergateway": "npm run build && npm run start:sse-supergateway",
     "dev:n8n": "npm run build && npm run start:n8n",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -38,6 +32,7 @@
     "express": "^4.21.2",
     "mcp-proxy-auth": "^1.0.2",
     "p-queue": "^8.0.1",
+    "supergateway": "^2.7.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

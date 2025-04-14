@@ -134,16 +134,11 @@ export const GET_CAMPAIGN_TOOL: CategoryTool = {
 
 export const LIST_CAMPAIGNS_TOOL: CategoryTool = {
   name: 'smartlead_list_campaigns',
-  description: 'List all campaigns with optional filtering.',
+  description: 'List all campaigns with optional pagination.',
   category: ToolCategory.CAMPAIGN_MANAGEMENT,
   inputSchema: {
     type: 'object',
     properties: {
-      status: {
-        type: 'string',
-        enum: ['active', 'paused', 'completed'],
-        description: 'Filter campaigns by status',
-      },
       limit: {
         type: 'number',
         description: 'Maximum number of campaigns to return',
