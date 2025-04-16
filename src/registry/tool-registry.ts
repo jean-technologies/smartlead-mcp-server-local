@@ -1,5 +1,6 @@
 import { CategoryTool } from '../types/common.js';
 import { isToolEnabled } from '../config/feature-config.js';
+import { validateLicense, LicenseLevel } from '../licensing/index.js';
 
 /**
  * Tool Registry manages the registration and querying of all available tools.
@@ -7,12 +8,17 @@ import { isToolEnabled } from '../config/feature-config.js';
  */
 export class ToolRegistry {
   private tools: Map<string, CategoryTool> = new Map();
+  private cachedEnabledTools: CategoryTool[] | null = null;
+  private lastCacheTime = 0;
+  private readonly CACHE_TTL = 60000; // 1 minute
   
   /**
    * Register a single tool in the registry
    */
   register(tool: CategoryTool): void {
     this.tools.set(tool.name, tool);
+    // Invalidate cache when tools change
+    this.cachedEnabledTools = null;
   }
   
   /**
@@ -45,10 +51,52 @@ export class ToolRegistry {
   }
   
   /**
-   * Get all tools that are enabled based on the configuration
+   * Get all tools that are enabled based on the license and configuration
+   * This method now returns a subset based on the current license
+   */
+  async getEnabledToolsAsync(): Promise<CategoryTool[]> {
+    const now = Date.now();
+    
+    // Use cache if available and not expired
+    if (this.cachedEnabledTools && (now - this.lastCacheTime < this.CACHE_TTL)) {
+      return this.cachedEnabledTools;
+    }
+    
+    // Get license to check allowed categories
+    const license = await validateLicense();
+    
+    // Filter tools based on license-allowed categories
+    const enabledTools = this.getAllTools().filter(tool => 
+      license.features.allowedCategories.includes(tool.category)
+    );
+    
+    // Cache results
+    this.cachedEnabledTools = enabledTools;
+    this.lastCacheTime = now;
+    
+    return enabledTools;
+  }
+  
+  /**
+   * Get enabled tools (synchronous version, falls back to configuration)
+   * This is used for backward compatibility
    */
   getEnabledTools(): CategoryTool[] {
-    return this.getAllTools().filter(tool => isToolEnabled(tool.name, tool.category));
+    // If we have a cache, use it
+    if (this.cachedEnabledTools) {
+      return this.cachedEnabledTools;
+    }
+    
+    // Otherwise fall back to config-based filtering
+    // This uses the local configuration as a fallback
+    return this.getAllTools().filter(tool => {
+      try {
+        return isToolEnabled(tool.name, tool.category);
+      } catch (e) {
+        // If async check fails, use default behavior
+        return false;
+      }
+    });
   }
   
   /**

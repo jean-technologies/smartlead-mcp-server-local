@@ -1,6 +1,0 @@
-{"method":"notifications/message","params":{"level":"info","data":"Smartlead MCP Server initialized successfully"},"jsonrpc":"2.0"}
-{"method":"notifications/message","params":{"level":"info","data":"Configuration: API URL: https://server.smartlead.ai/api/v1"},"jsonrpc":"2.0"}
-{"method":"notifications/message","params":{"level":"info","data":"Enabled categories: campaignManagement"},"jsonrpc":"2.0"}
-{"method":"notifications/message","params":{"level":"info","data":"Enabled tools: 13"},"jsonrpc":"2.0"}
-{"method":"notifications/message","params":{"level":"info","data":"Handling initialize request from test-client"},"jsonrpc":"2.0"}
-{"result":{"serverInfo":{"name":"smartlead-mcp","version":"1.0.0"},"capabilities":{"tools":{"callTool":true,"listTools":true},"logging":{"loggingMessage":true}},"instructions":"Smartlead MCP Server for accessing Smartlead API functionality","protocolVersion":"2024-11-05"},"jsonrpc":"2.0","id":"init"}

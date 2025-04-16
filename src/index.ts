@@ -12,6 +12,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
 
+// Import licensing system
+import { validateLicense, trackUsage, isFeatureEnabled } from './licensing/index.js';
+
 // Import Supergateway integration
 import { createSupergateway } from './supergateway.js';
 
@@ -32,11 +35,26 @@ import { handleSmartDeliveryTool } from './handlers/smartDelivery.js';
 import { handleWebhookTool } from './handlers/webhooks.js';
 import { handleClientManagementTool } from './handlers/clientManagement.js';
 import { handleSmartSendersTool } from './handlers/smartSenders.js';
-import { enabledCategories } from './config/feature-config.js';
+import { enabledCategories, featureFlags } from './config/feature-config.js';
 import { ToolCategory } from './types/common.js';
 import { toolRegistry } from './registry/tool-registry.js';
 
+console.log('Starting Smartlead MCP Server...');
+
 dotenv.config();
+
+// Check license on startup
+(async () => {
+  const licenseResult = await validateLicense();
+  console.log(`License: ${licenseResult.message}`);
+  console.log(`Tier: ${licenseResult.level}`);
+  console.log(`Available categories: ${licenseResult.features.allowedCategories.join(', ')}`);
+  
+  // Set n8n integration flag based on license
+  featureFlags.n8nIntegration = licenseResult.features.n8nIntegration;
+})().catch(error => {
+  console.error('License validation error:', error);
+});
 
 // Check if Supergateway integration is enabled
 const useSupergateway = process.env.USE_SUPERGATEWAY === 'true';
@@ -226,9 +244,25 @@ registerTools();
 // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   safeLog('info', 'Handling listTools request');
-  return {
-    tools: toolRegistry.getEnabledTools(),
-  };
+  
+  try {
+    // Get license-filtered tools
+    const tools = await toolRegistry.getEnabledToolsAsync();
+    
+    // Log license status and available tools count
+    const license = await validateLicense();
+    safeLog('info', `Listing ${tools.length} tools available in ${license.level} license tier`);
+    
+    return {
+      tools: tools,
+    };
+  } catch (error) {
+    // Fallback to sync method if async fails
+    safeLog('warning', `License validation failed, using default tool list: ${error}`);
+    return {
+      tools: toolRegistry.getEnabledTools(),
+    };
+  }
 });
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -245,7 +279,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Safe guard for undefined arguments
     const toolArgs = args || {};
 
-    // Check if the tool exists and is enabled
+    // Check if the tool exists in the registry
     if (!toolRegistry.hasToolWithName(name)) {
       return {
         content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -259,6 +293,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (!tool) {
       return {
         content: [{ type: "text", text: `Tool ${name} not found in registry` }],
+        isError: true,
+      };
+    }
+    
+    // Check license for tool access
+    const licenseResult = await validateLicense();
+    
+    // Track usage for analytics and quota tracking
+    await trackUsage(process.env.YOUR_SERVICE_API_KEY, name);
+    
+    // Check if this tool category is allowed by the license
+    if (!licenseResult.features.allowedCategories.includes(tool.category)) {
+      return {
+        content: [{ 
+          type: "text", 
+          text: `Tool ${name} is not available in your current license tier (${licenseResult.level}). Please upgrade to access this feature.` 
+        }],
+        isError: true,
+      };
+    }
+    
+    // Check for usage quota limits
+    if (licenseResult.usageCount >= licenseResult.features.maxRequests && licenseResult.level !== 'premium') {
+      return {
+        content: [{ 
+          type: "text", 
+          text: `You have reached your monthly usage quota (${licenseResult.features.maxRequests} requests). Please upgrade your plan to continue using this service.` 
+        }],
         isError: true,
       };
     }
@@ -344,6 +406,25 @@ async function runServer() {
   try {
     console.error('Initializing Smartlead MCP Server...');
 
+    // Check if we're trying to use n8n integration
+    const usingN8nMode = process.env.USE_SUPERGATEWAY === 'true' || process.argv.includes('--sse');
+    
+    if (usingN8nMode) {
+      // Check license for n8n integration permission
+      const licenseResult = await validateLicense();
+      
+      if (!licenseResult.features.n8nIntegration) {
+        console.error('=============================================================');
+        console.error('ERROR: Your license does not include n8n integration features');
+        console.error('This feature requires a Premium license subscription.');
+        console.error('Visit https://yourservice.com/pricing to upgrade your plan.');
+        console.error('=============================================================');
+        process.exit(1);
+      } else {
+        console.error('n8n integration enabled - Premium license detected');
+      }
+    }
+
     // Use standard stdio transport directly
     const transport = new StdioServerTransport();
     
@@ -381,11 +462,12 @@ async function runServer() {
       `Configuration: API URL: ${SMARTLEAD_API_URL}`
     );
     
+    // Log license information
+    const licenseInfo = await validateLicense();
+    safeLog('info', `License tier: ${licenseInfo.level} - ${licenseInfo.message}`);
+    
     // Log which categories are enabled
-    const enabledCats = Object.entries(enabledCategories)
-      .filter(([_, enabled]) => enabled)
-      .map(([cat]) => cat)
-      .join(', ');
+    const enabledCats = licenseInfo.features.allowedCategories.join(', ');
     safeLog('info', `Enabled categories: ${enabledCats}`);
     
     // Log the number of enabled tools
