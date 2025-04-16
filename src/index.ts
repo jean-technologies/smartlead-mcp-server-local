@@ -11,6 +11,7 @@ import {
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Import licensing system
 import { validateLicense, trackUsage, isFeatureEnabled } from './licensing/index.js';
@@ -41,7 +42,8 @@ import { toolRegistry } from './registry/tool-registry.js';
 
 console.log('Starting Smartlead MCP Server...');
 
-dotenv.config();
+// Load environment variables from .env file in the project root
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // Check license on startup
 (async () => {

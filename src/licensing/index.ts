@@ -70,7 +70,7 @@ let lastValidationTime = 0;
  */
 export async function validateLicense(): Promise<LicenseValidationResult> {
   // Use the license key from the specific env var first
-  const apiKey = process.env.SMARTLEAD_LICENSE_KEY;
+  const apiKey = process.env.JEAN_LICENSE_KEY;
   
   // Check if we have a cached result that's still valid
   const now = Date.now();
