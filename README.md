@@ -1,218 +1,145 @@
-# Smartlead MCP Server
+# Smartlead Simplified MCP Server (with Licensing)
 
-A Model Context Protocol (MCP) server for Smartlead integration. This server provides tools for managing various aspects of your Smartlead account, including campaigns, leads, statistics, smart delivery, webhooks, client management, and smart senders.
+This application provides a simplified interface or Multi-Channel Proxy (MCP) for interacting with the Smartlead API. It organizes Smartlead API calls into logical tools and categories, facilitating integration with various clients and workflows.
 
-## Features
+**Licensing:** This server integrates with an external license server (`smartlead-license-server`) to manage feature access based on user subscription tiers (e.g., Free, Basic, Premium). Availability of certain features and tool categories depends on the active license tier validated against the configured license server.
 
-- **Campaign Management**: Create, update, and manage email campaigns and sequences
-- **Lead Management**: Add, update, and track leads in your campaigns
-- **Statistics**: Fetch and analyze campaign performance metrics
-- **Smart Delivery**: Optimize email delivery with spam test automation, reporting, and analytics
-- **Webhooks**: Manage webhook integrations with external services
-- **Client Management**: Manage clients and their permissions
-- **Smart Senders**: Seamlessly search, generate, and purchase domains and mailboxes for email campaigns
-- **Supergateway Integration**: Optional integration with the Supergateway package
-- **SSE Support**: Server-Sent Events support for web-based integrations (via Supergateway)
+## Core Features
 
-## Installation
+*   **Proxies Smartlead API:** Acts as an intermediary for Smartlead API calls.
+*   **Tool Abstraction:** Provides a structured set of tools for managing:
+    *   Campaign Management
+    *   Lead Management
+    *   Campaign Statistics
+    *   Smart Delivery (Spam Tests, DNS Checks, etc.)
+    *   Webhooks
+    *   Client Management
+    *   Smart Senders (Domain/Mailbox Purchase)
+*   **License Validation:** Checks license status against an external server to enable appropriate features.
+*   **Multiple Operation Modes:** Supports standard STDIO communication, Server-Sent Events (SSE) for web clients, and optional Supergateway integration.
+*   **Configurable:** Retry logic, API endpoints, and feature flags can be configured via environment variables.
 
-1. Clone the repository
-2. Install dependencies:
+## Prerequisites
 
-```bash
-npm install
-```
+*   Node.js (v18+ recommended)
+*   npm or yarn
+*   A Smartlead API Key.
+*   A running instance of the [`smartlead-license-server`](https://github.com/your-username/smartlead-license-server) application (either deployed or running locally).
+*   A valid License Key obtained from the `smartlead-license-server` instance.
 
-3. Create a `.env` file based on `.env.example` and add your Smartlead API key:
+## Setup Instructions
 
-```
-SMARTLEAD_API_KEY=your_api_key_here
-```
+1.  **Clone this repository:**
+    ```bash
+    git clone https://github.com/your-username/smartlead-simplified.git
+    cd smartlead-simplified
+    ```
 
-4. Build the project:
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
 
-```bash
-npm run build
-```
+3.  **Configure Environment Variables:**
+    Copy the example environment file `.env.example` to a new file named `.env`:
+    ```bash
+    cp .env.example .env
+    ```
+    Edit the `.env` file and provide the necessary values:
 
-## Usage
+    ```dotenv
+    # --- Core Smartlead Configuration ---
+    SMARTLEAD_API_KEY=your_smartlead_api_key_here # (Required)
+    # SMARTLEAD_API_URL=https://custom-server.smartlead.ai/api/v1 # (Optional)
 
-### Server Operation Modes
+    # --- License Server Integration ---
+    LICENSE_SERVER_URL=https://sea-turtle-app-64etr.ondigitalocean.app # (Required) URL of your license server
+    SMARTLEAD_LICENSE_KEY=SL-XXXX-XXXX-XXXX # (Required) Your license key
 
-The server can be run in several different modes:
+    # --- Optional Configurations ---
+    # Retry Logic
+    SMARTLEAD_RETRY_MAX_ATTEMPTS=3
+    SMARTLEAD_RETRY_INITIAL_DELAY=1000
+    SMARTLEAD_RETRY_MAX_DELAY=10000
+    SMARTLEAD_RETRY_BACKOFF_FACTOR=2
 
-#### Standard Mode (STDIO)
+    # Supergateway Integration
+    # USE_SUPERGATEWAY=false
+    # SUPERGATEWAY_API_KEY=your_supergateway_api_key
 
-The standard mode where the server communicates through standard input/output streams:
+    # License Level Override (for Development/Testing)
+    # Force a specific tier locally, bypassing the server check.
+    # Values: 'free', 'basic', 'premium'. Leave blank for normal operation.
+    # LICENSE_LEVEL_OVERRIDE=
+    ```
+4.  **(If using TypeScript) Build the project:**
+    ```bash
+    npm run build
+    ```
+
+## Running the Application
+
+The server can operate in different modes depending on your integration needs:
+
+### 1. Standard Mode (STDIO)
+
+This is the default mode for direct communication with clients like the Claude VSCode extension or other tools expecting MCP communication over standard input/output.
 
 ```bash
 npm start
 ```
 
-#### With Supergateway Integration
+*(You may need to configure your MCP client (e.g., Claude settings JSON) to point to the `dist/index.js` script and pass the required environment variables like `SMARTLEAD_API_KEY`, `LICENSE_SERVER_URL`, `SMARTLEAD_LICENSE_KEY`).*
 
-To use the Supergateway integration:
+### 2. Server-Sent Events (SSE) Mode (for Web Clients like n8n)
 
-```bash
-npm run start:supergateway
-```
+This mode exposes an HTTP endpoint for clients that communicate via Server-Sent Events.
 
-#### SSE Mode (with Supergateway)
+1.  **Start the server in SSE mode:**
+    ```bash
+    npm run start:sse
+    ```
+    *(This script likely starts the server configured to listen on an HTTP port, e.g., 3000, and handle SSE connections at an endpoint like `/sse`.)*
 
-To run the server with Server-Sent Events (SSE) support using the Supergateway package:
+2.  **Connect from Client (e.g., n8n):**
+    *   In your web client (like n8n's MCP Client node), configure it to connect to the server's SSE endpoint (e.g., `http://localhost:3000/sse`).
+    *   If you need to expose your local server running in SSE mode to the internet (e.g., for n8n cloud), use a tunneling tool like `ngrok`:
+        ```bash
+        # Install ngrok if you haven't: npm install -g ngrok
+        ngrok http 3000 # Or the port your SSE server runs on
+        ```
+        Use the public HTTPS URL provided by ngrok (e.g., `https://xxxxxxx.ngrok.io/sse`) in your client configuration.
 
-```bash
-npm run start:sse
-```
+### 3. Supergateway Mode (Alternative SSE/Management)
 
-Or with Supergateway enabled:
-
-```bash
-npm run start:sse-supergateway
-```
-
-### Integration with Claude or Other MCP Clients
-
-To use this MCP server with Claude or other MCP clients, you need to add it to the appropriate MCP settings file:
-
-1. For Claude VSCode extension, add it to `c:\Users\<username>\AppData\Roaming\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
-2. For Claude desktop app, add it to `%APPDATA%\Claude\claude_desktop_config.json` on Windows or `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS
-
-Example configuration:
-
-```json
-{
-  "mcpServers": {
-    "smartlead": {
-      "command": "node",
-      "args": ["path/to/smartlead-mcp-server/dist/index.js"],
-      "env": {
-        "SMARTLEAD_API_KEY": "your_api_key_here"
-      },
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
-```
-
-Replace `your_api_key_here` with your actual Smartlead API key and update the path to match your installation.
-
-### Integration with n8n or Other Web Clients
-
-For web-based integration using SSE (Server-Sent Events):
-
-1. Start the server in SSE mode:
-```bash
-npm run start:sse
-```
-
-2. In n8n, add an MCP Client node and configure it to connect to:
-```
-http://localhost:3000/sse
-```
-
-If you need to expose your local server to the internet, you can use a tool like ngrok:
+The Supergateway package can manage running the MCP server and exposing it via SSE.
 
 ```bash
-ngrok http 3000
+# Ensure supergateway is installed (e.g., npx -y ...)
+npx supergateway --stdio "node dist/index.js" --port 3000 --passEnv SMARTLEAD_API_KEY,LICENSE_SERVER_URL,SMARTLEAD_LICENSE_KEY
 ```
+This runs the MCP server in stdio mode but makes it accessible via SSE on port 3000, automatically handling session management and passing necessary environment variables.
 
-Then use the provided ngrok URL with the /sse endpoint in your web client.
+## Licensing System Integration
 
-## Configuration
+Feature access is controlled by the external `smartlead-license-server`.
 
-The server can be configured using environment variables:
+*   **Validation:** The app validates the `SMARTLEAD_LICENSE_KEY` against the `LICENSE_SERVER_URL` on startup and before critical actions.
+*   **Feature Enabling:** The license level (`free`, `basic`, `premium`) returned by the server determines which tool categories are enabled locally (based on `src/licensing/index.ts`).
+*   **Offline Fallback:** If the license server is unreachable, the app may use cached data or default to FREE tier functionality.
+*   **Feature Tokens:** Critical premium actions (like n8n integration) might use secure feature tokens obtained from the license server for stronger validation.
 
-### Required Environment Variables
-- `SMARTLEAD_API_KEY`: Your Smartlead API key
+## Available Tool Categories (Subject to License)
 
-### Supergateway Configuration
-- `USE_SUPERGATEWAY`: Set to `true` to enable Supergateway integration
-- `SUPERGATEWAY_API_KEY`: Your Supergateway API key (required if `USE_SUPERGATEWAY` is `true`)
+*   **Campaign Management**: Create, update, manage campaigns/sequences.
+*   **Lead Management**: Add, update, track leads.
+*   **Campaign Statistics**: Fetch and analyze performance metrics.
+*   **Smart Delivery**: Optimize email delivery, spam tests, DNS checks.
+*   **Webhooks**: Manage webhook integrations.
+*   **Client Management**: Manage clients and permissions.
+*   **Smart Senders**: Search, generate, purchase domains/mailboxes. *(Note: Uses `https://smart-senders.smartlead.ai/api/v1`)*
 
-### Optional Smartlead Configuration
-- `SMARTLEAD_API_URL`: Custom API URL (defaults to https://server.smartlead.ai/api/v1)
-- `SMARTLEAD_RETRY_MAX_ATTEMPTS`: Maximum retry attempts for API calls (default: 3)
-- `SMARTLEAD_RETRY_INITIAL_DELAY`: Initial delay in milliseconds for retries (default: 1000)
-- `SMARTLEAD_RETRY_MAX_DELAY`: Maximum delay in milliseconds for retries (default: 10000)
-- `SMARTLEAD_RETRY_BACKOFF_FACTOR`: Backoff factor for retry delays (default: 2)
-
-## Using the Supergateway Package for SSE
-
-The recommended approach for SSE mode is to use the Supergateway package's built-in support:
-
-```bash
-npx -y supergateway --stdio "node dist/index.js" --port 3000
-```
-
-This approach:
-1. Runs your MCP server in stdio mode
-2. Creates an HTTP server that exposes your MCP server over SSE
-3. Handles all session management and message routing automatically
-
-This is cleaner and more reliable than custom SSE implementations.
-
-## Available Tool Categories
-
-The server provides tools in the following categories:
-
-### Campaign Management
-Tools for creating and managing email campaigns, schedules, and sequences.
-
-### Lead Management
-Tools for adding, updating, and managing leads across campaigns.
-
-### Statistics
-Tools for retrieving and analyzing campaign performance metrics.
-
-### Smart Delivery
-Tools for optimizing email delivery through sophisticated spam testing, including:
-- Creating manual and automated placement tests
-- Retrieving regional and provider-wise reports
-- Analyzing spam filter effectiveness
-- Checking DKIM, SPF, and rDNS settings
-- Managing folders and test organization
-- Retrieving detailed content and header analysis
-
-### Webhooks
-Tools for managing webhook integrations with external services, allowing for real-time event handling.
-
-### Client Management
-Tools for managing clients and their access permissions within your Smartlead account.
-
-### Smart Senders
-Tools for streamlining email infrastructure setup, including:
-- Retrieving available domain vendors
-- Searching for available domains under $15
-- Auto-generating mailbox suggestions based on personal details
-- Placing orders for domains and mailboxes
-- Retrieving lists of purchased domains
-
-## Special API Endpoints
-
-Note that while most API endpoints use the standard Smartlead API URL (https://server.smartlead.ai/api/v1), the Smart Senders category uses a different base URL:
-
-```
-https://smart-senders.smartlead.ai/api/v1
-```
-
-This is handled automatically by the server when making requests to Smart Senders endpoints.
-
-## Enabling/Disabling Features
-
-Features can be enabled or disabled in the `src/config/feature-config.ts` file. By default, the following categories are enabled:
-- Smart Delivery
-- Webhooks
-- Client Management
-- Smart Senders
-
-You can enable additional categories by modifying the configuration file.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-MIT
+---
+*(You can add sections on Contributing, License, etc. if applicable)*

@@ -24,7 +24,7 @@ const LICENSE_CONFIG: Record<LicenseLevel, LicenseFeatures> = {
     smartleadApiAccess: true
   },
   [LicenseLevel.BASIC]: {
-    allowedCategories: ['campaignManagement', 'leadManagement', 'campaignStatistics', 'smartDelivery'],
+    allowedCategories: ['campaignManagement', 'leadManagement', 'campaignStatistics', 'smartDelivery', 'webhooks', 'clientManagement', 'smartSenders'],
     maxRequests: 1000,
     n8nIntegration: false,
     smartleadApiAccess: true
@@ -58,23 +58,30 @@ let cachedFeatureToken: FeatureRequestToken | null = null;
 const requestCounts: Record<string, number> = {};
 
 // API configuration
-const LICENSING_API_URL = process.env.LICENSING_API_URL || 'https://api.yourservice.com/licensing';
+// Use the environment variable for the license server URL
+const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL; 
 const LICENSING_CACHE_TTL = 3600000; // 1 hour
 let lastValidationTime = 0;
 
 /**
  * Validate a license key
- * @param licenseKey The license key to validate
+ * @param licenseKey Optional: license key to validate (primarily uses env var)
  * @returns License validation result
  */
-export async function validateLicense(licenseKey?: string): Promise<LicenseValidationResult> {
-  // Use the API key from env if not provided
-  const apiKey = licenseKey || process.env.YOUR_SERVICE_API_KEY;
+export async function validateLicense(): Promise<LicenseValidationResult> {
+  // Use the license key from the specific env var first
+  const apiKey = process.env.SMARTLEAD_LICENSE_KEY;
   
   // Check if we have a cached result that's still valid
   const now = Date.now();
   if (cachedValidation && (now - lastValidationTime < LICENSING_CACHE_TTL)) {
     return cachedValidation;
+  }
+  
+  // Check if the License Server URL is configured
+  if (!LICENSE_SERVER_URL) {
+     console.error('LICENSE_SERVER_URL is not configured in environment variables.');
+     return createValidationResult(LicenseLevel.FREE, false, 'Licensing service is not configured.');
   }
   
   // Default to free tier if no key provided
@@ -91,7 +98,8 @@ export async function validateLicense(licenseKey?: string): Promise<LicenseValid
   
   try {
     // Call license validation API to validate the key against Supabase
-    const response = await axios.get(`${LICENSING_API_URL}/validate`, {
+    // Use the configured LICENSE_SERVER_URL
+    const response = await axios.get(`${LICENSE_SERVER_URL}/validate`, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'X-Client-Id': getMachineId()
@@ -186,7 +194,7 @@ export async function trackUsage(licenseKey?: string, toolName = 'unknown'): Pro
   
   try {
     // Report usage asynchronously (don't await)
-    axios.post(`${LICENSING_API_URL}/track`, {
+    axios.post(`${LICENSE_SERVER_URL}/track`, {
       key: apiKey,
       tool: toolName,
       count: 10, // Batch reporting
