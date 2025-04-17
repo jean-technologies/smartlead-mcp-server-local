@@ -153,7 +153,6 @@ Feature access is controlled by the external `smartlead-license-server`.
 *   **Advanced Features**: Higher usage limits and premium capabilities.
 
 ---
-*(You can add sections on Contributing, License, etc. if applicable)*
 
 ## Contact
 
