@@ -47,11 +47,11 @@ export async function createSupergateway(apiKey?: string): Promise<SuperGateway 
     if (!n8nIntegrationEnabled) {
       console.error('=============================================================');
       console.error('ERROR: Your license does not include n8n integration features');
-      console.error('This feature requires a Premium license subscription.');
+      console.error('This feature requires a Basic or Premium license subscription.');
       console.error('Visit https://yourservice.com/pricing to upgrade your plan.');
       console.error('');
-      console.error('For testing purposes, you can override the license level by');
-      console.error('setting LICENSE_LEVEL_OVERRIDE=premium in your .env file.');
+      console.error('For testing purposes, you can obtain a Basic license from');
+      console.error('https://yourservice.com/pricing');
       console.error('=============================================================');
       return null;
     }

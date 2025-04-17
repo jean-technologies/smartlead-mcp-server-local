@@ -14,7 +14,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Import licensing system
-import { validateLicense, trackUsage, isFeatureEnabled, printLicenseStatus } from './licensing/index.js';
+import { validateLicense, trackUsage, isFeatureEnabled, printLicenseStatus, getFeatureToken } from './licensing/index.js';
 
 // Import Supergateway integration
 import { createSupergateway } from './supergateway.js';
@@ -303,8 +303,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Check license for tool access
     const licenseResult = await validateLicense();
     
+    // For premium features, we can require server-side validation tokens
+    if (tool.requiresServerValidation && tool.category === 'premium') {
+      const token = await getFeatureToken();
+      if (!token) {
+        return {
+          content: [{ 
+            type: "text", 
+            text: `Tool ${name} requires server-side validation. Please ensure you have a valid Premium license.` 
+          }],
+          isError: true,
+        };
+      }
+    }
+    
     // Track usage for analytics and quota tracking
-    await trackUsage(process.env.YOUR_SERVICE_API_KEY, name);
+    await trackUsage(process.env.JEAN_LICENSE_KEY, name);
     
     // Check if this tool category is allowed by the license
     if (!licenseResult.features.allowedCategories.includes(tool.category)) {
@@ -419,12 +433,12 @@ async function runServer() {
       if (!licenseResult.features.n8nIntegration) {
         console.error('=============================================================');
         console.error('ERROR: Your license does not include n8n integration features');
-        console.error('This feature requires a Premium license subscription.');
+        console.error('This feature requires a Basic or Premium license subscription.');
         console.error('Visit https://yourservice.com/pricing to upgrade your plan.');
         console.error('=============================================================');
         process.exit(1);
       } else {
-        console.error('n8n integration enabled - Premium license detected');
+        console.error('n8n integration enabled - ' + licenseResult.level.charAt(0).toUpperCase() + licenseResult.level.slice(1) + ' license detected');
       }
     }
 

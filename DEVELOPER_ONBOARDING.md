@@ -65,9 +65,9 @@ This exposes:
 - SSE endpoint: `http://localhost:3000/sse`
 - Message endpoint: `http://localhost:3000/message`
 
-### Supergateway Integration (Premium Feature)
+### Supergateway Integration
 
-For n8n integration and advanced use cases:
+For n8n integration and advanced use cases (requires BASIC or PREMIUM license):
 
 ```bash
 npm run start:sse-supergateway
@@ -80,8 +80,8 @@ The application supports three license tiers:
 | Tier | Features | Tools |
 |------|----------|-------|
 | **FREE** | Basic campaign & lead management | 20+ tools |
-| **BASIC** | + Analytics, Webhooks, Smart Delivery | 50+ tools |
-| **PREMIUM** | + n8n Integration, All Features | All tools |
+| **BASIC** | + Analytics, Webhooks, Smart Delivery, n8n Integration | 50+ tools |
+| **PREMIUM** | + Advanced Features, Higher Usage Limits | All tools |
 
 ## Project Structure
 
@@ -191,7 +191,7 @@ curl -X POST http://localhost:3000/message \
    - Verify tool name spelling
 
 3. **Supergateway integration failures**
-   - Ensure you have a Premium license
+   - Ensure you have a BASIC or PREMIUM license
    - Check that `USE_SUPERGATEWAY=true` in your environment
    - Verify the `SUPERGATEWAY_API_KEY` is set
 

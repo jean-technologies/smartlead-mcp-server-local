@@ -99,7 +99,7 @@ npm start
 
 ### 2. Server-Sent Events (SSE) Mode (for Web Clients like n8n)
 
-This mode exposes an HTTP endpoint for clients that communicate via Server-Sent Events.
+This mode exposes an HTTP endpoint for clients that communicate via Server-Sent Events. Requires a BASIC or PREMIUM license.
 
 1.  **Start the server in SSE mode:**
     ```bash
@@ -118,7 +118,7 @@ This mode exposes an HTTP endpoint for clients that communicate via Server-Sent 
 
 ### 3. Supergateway Mode (Alternative SSE/Management)
 
-The Supergateway package can manage running the MCP server and exposing it via SSE.
+The Supergateway package can manage running the MCP server and exposing it via SSE. Requires a BASIC or PREMIUM license.
 
 ```bash
 # Ensure supergateway is installed (e.g., npx -y ...)
@@ -133,17 +133,24 @@ Feature access is controlled by the external `smartlead-license-server`.
 *   **Validation:** The app validates the `JEAN_LICENSE_KEY` against the `LICENSE_SERVER_URL` on startup and before critical actions.
 *   **Feature Enabling:** The license level (`free`, `basic`, `premium`) returned by the server determines which tool categories are enabled locally (based on `src/licensing/index.ts`).
 *   **Offline Fallback:** If the license server is unreachable, the app may use cached data or default to FREE tier functionality.
-*   **Feature Tokens:** Critical premium actions (like n8n integration) might use secure feature tokens obtained from the license server for stronger validation.
+*   **Feature Tokens:** Critical premium actions require secure feature tokens obtained from the license server for stronger validation.
 
 ## Available Tool Categories (Subject to License)
 
+**FREE Tier:**
 *   **Campaign Management**: Create, update, manage campaigns/sequences.
 *   **Lead Management**: Add, update, track leads.
+
+**BASIC Tier (includes all FREE features plus):**
 *   **Campaign Statistics**: Fetch and analyze performance metrics.
 *   **Smart Delivery**: Optimize email delivery, spam tests, DNS checks.
 *   **Webhooks**: Manage webhook integrations.
+*   **n8n Integration**: Connect with n8n workflows via SSE.
+
+**PREMIUM Tier (includes all BASIC features plus):**
 *   **Client Management**: Manage clients and permissions.
 *   **Smart Senders**: Search, generate, purchase domains/mailboxes. *(Note: Uses `https://smart-senders.smartlead.ai/api/v1`)*
+*   **Advanced Features**: Higher usage limits and premium capabilities.
 
 ---
 *(You can add sections on Contributing, License, etc. if applicable)*

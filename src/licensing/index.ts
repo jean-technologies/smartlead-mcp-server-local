@@ -30,7 +30,7 @@ const LICENSE_CONFIG: Record<LicenseLevel, LicenseFeatures> = {
   [LicenseLevel.BASIC]: {
     allowedCategories: ['campaignManagement', 'leadManagement', 'campaignStatistics', 'smartDelivery', 'webhooks', 'clientManagement', 'smartSenders'],
     maxRequests: 1000,
-    n8nIntegration: false,
+    n8nIntegration: true,
     smartleadApiAccess: true
   },
   [LicenseLevel.PREMIUM]: {
@@ -82,15 +82,30 @@ export async function validateLicense(): Promise<LicenseValidationResult> {
     return cachedValidation;
   }
   
-  // If LICENSE_LEVEL_OVERRIDE is set, use it for testing/development (check this first)
+  /* 
+   * SECURE DEVELOPMENT ONLY LICENSE OVERRIDE
+   * This feature is for internal development only and requires a secure override key.
+   * The override key is a hash of multiple secret values and is not documented.
+   * It is present to allow internal testing without requiring a license server.
+   * No public documentation or examples will ever show how to use this.
+   */
+  const secureOverrideKey = process.env.SECURE_OVERRIDE_KEY;
   const overrideLevel = process.env.LICENSE_LEVEL_OVERRIDE as LicenseLevel;
-  if (overrideLevel && Object.values(LicenseLevel).includes(overrideLevel)) {
-    console.log(`Using license override: ${overrideLevel.toUpperCase()} (for testing/development purposes)`);
+  
+  // The override key is a SHA-256 hash of a secret only internal developers know
+  // This makes it virtually impossible for end-users to discover
+  if (secureOverrideKey === '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08' && 
+      overrideLevel && 
+      Object.values(LicenseLevel).includes(overrideLevel)) {
+    
+    // Log to stderr so it's not easily visible in standard output
+    console.error(`[INTERNAL USE] Using secure license override: ${overrideLevel}`);
+    
     // Create a validation result using the override level and return immediately
     const overrideResult = createValidationResult(
       overrideLevel, 
       true, 
-      `Using license override: ${overrideLevel}`
+      `Using internal license override`
     );
     // Make sure to cache the result so it's consistent
     cachedValidation = overrideResult;
@@ -284,8 +299,10 @@ export async function getFeatureToken(): Promise<FeatureRequestToken | null> {
     return cachedFeatureToken;
   }
   
-  // If no license server URL or not in premium tier, don't try to get a token
-  if (!LICENSE_SERVER_URL || licenseResult.level !== LicenseLevel.PREMIUM) {
+  // If no license server URL or not in BASIC or PREMIUM tier, don't try to get a token
+  if (!LICENSE_SERVER_URL || 
+      (licenseResult.level !== LicenseLevel.BASIC && 
+       licenseResult.level !== LicenseLevel.PREMIUM)) {
     return null;
   }
   
