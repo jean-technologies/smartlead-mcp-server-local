@@ -1,4 +1,5 @@
 import { SuperGateway as MockSuperGateway } from './supergateway-mock.js';
+import { isFeatureEnabled, LicenseLevel } from './licensing/index.js';
 
 /**
  * Interface for SupergateWay options
@@ -40,6 +41,21 @@ export async function tryImportSupergateway(): Promise<any> {
  */
 export async function createSupergateway(apiKey?: string): Promise<SuperGateway | null> {
   try {
+    // Check if the current license allows n8n integration
+    const n8nIntegrationEnabled = await isFeatureEnabled('n8nIntegration');
+    
+    if (!n8nIntegrationEnabled) {
+      console.error('=============================================================');
+      console.error('ERROR: Your license does not include n8n integration features');
+      console.error('This feature requires a Premium license subscription.');
+      console.error('Visit https://yourservice.com/pricing to upgrade your plan.');
+      console.error('');
+      console.error('For testing purposes, you can override the license level by');
+      console.error('setting LICENSE_LEVEL_OVERRIDE=premium in your .env file.');
+      console.error('=============================================================');
+      return null;
+    }
+    
     // Try to dynamically import the Supergateway module
     const supergateModule = await tryImportSupergateway();
     
@@ -51,6 +67,7 @@ export async function createSupergateway(apiKey?: string): Promise<SuperGateway 
     // Check if API key is provided
     if (!apiKey) {
       console.error('SUPERGATEWAY_API_KEY not provided');
+      console.error('Please set the SUPERGATEWAY_API_KEY environment variable in your .env file.');
       return null;
     }
     

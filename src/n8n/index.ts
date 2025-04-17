@@ -29,7 +29,7 @@ export async function getWorkflows() {
     // Make the API call with the feature token
     const response = await axios.get(`${N8N_CONFIG.apiUrl}/workflows`, {
       headers: {
-        'Authorization': `Bearer ${process.env.YOUR_SERVICE_API_KEY}`,
+        'Authorization': `Bearer ${process.env.JEAN_LICENSE_KEY}`,
         'X-Feature-Token': featureToken.token
       }
     });
@@ -79,7 +79,7 @@ export async function executeWorkflow(workflowId: string, data: any) {
       data,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.YOUR_SERVICE_API_KEY}`,
+          'Authorization': `Bearer ${process.env.JEAN_LICENSE_KEY}`,
           'X-Feature-Token': featureToken.token,
           'Content-Type': 'application/json'
         }

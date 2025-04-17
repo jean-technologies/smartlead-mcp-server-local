@@ -14,7 +14,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Import licensing system
-import { validateLicense, trackUsage, isFeatureEnabled } from './licensing/index.js';
+import { validateLicense, trackUsage, isFeatureEnabled, printLicenseStatus } from './licensing/index.js';
 
 // Import Supergateway integration
 import { createSupergateway } from './supergateway.js';
@@ -47,10 +47,11 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // Check license on startup
 (async () => {
+  // Print detailed license information
+  await printLicenseStatus();
+  
+  // Still get the license result for configuration
   const licenseResult = await validateLicense();
-  console.log(`License: ${licenseResult.message}`);
-  console.log(`Tier: ${licenseResult.level}`);
-  console.log(`Available categories: ${licenseResult.features.allowedCategories.join(', ')}`);
   
   // Set n8n integration flag based on license
   featureFlags.n8nIntegration = licenseResult.features.n8nIntegration;

@@ -1,4 +1,8 @@
 import axios from 'axios';
+import * as dotenv from 'dotenv';
+
+// Ensure .env file is loaded
+dotenv.config();
 
 // License levels
 export enum LicenseLevel {
@@ -78,81 +82,191 @@ export async function validateLicense(): Promise<LicenseValidationResult> {
     return cachedValidation;
   }
   
+  // If LICENSE_LEVEL_OVERRIDE is set, use it for testing/development (check this first)
+  const overrideLevel = process.env.LICENSE_LEVEL_OVERRIDE as LicenseLevel;
+  if (overrideLevel && Object.values(LicenseLevel).includes(overrideLevel)) {
+    console.log(`Using license override: ${overrideLevel.toUpperCase()} (for testing/development purposes)`);
+    // Create a validation result using the override level and return immediately
+    const overrideResult = createValidationResult(
+      overrideLevel, 
+      true, 
+      `Using license override: ${overrideLevel}`
+    );
+    // Make sure to cache the result so it's consistent
+    cachedValidation = overrideResult;
+    lastValidationTime = now;
+    return overrideResult;
+  }
+  
   // Check if the License Server URL is configured
   if (!LICENSE_SERVER_URL) {
      console.error('LICENSE_SERVER_URL is not configured in environment variables.');
+     console.error('Please check your .env file and ensure LICENSE_SERVER_URL is set correctly.');
+     console.error('Defaulting to FREE tier with limited functionality.');
      return createValidationResult(LicenseLevel.FREE, false, 'Licensing service is not configured.');
   }
   
   // Default to free tier if no key provided
   if (!apiKey) {
+    console.error('No license key (JEAN_LICENSE_KEY) provided. Running in FREE mode with limited features.');
+    console.error('To access more features, obtain a license key and add it to your .env file.');
     return createValidationResult(LicenseLevel.FREE, false, 'No API key provided. Running in free mode with limited features.');
   }
   
-  // If LICENSE_LEVEL_OVERRIDE is set, use it for testing/development
-  const overrideLevel = process.env.LICENSE_LEVEL_OVERRIDE as LicenseLevel;
-  if (overrideLevel && Object.values(LicenseLevel).includes(overrideLevel)) {
-    console.log(`Using license override: ${overrideLevel}`);
-    return createValidationResult(overrideLevel, true, `Using license override: ${overrideLevel}`);
-  }
-  
   try {
-    // Call license validation API to validate the key against Supabase
-    // Use the configured LICENSE_SERVER_URL
-    const response = await axios.get(`${LICENSE_SERVER_URL}/validate`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'X-Client-Id': getMachineId()
-      },
-      timeout: 5000 // 5 second timeout
-    });
+    // Call license validation API to validate the key
+    console.log(`Validating license key with server at ${LICENSE_SERVER_URL}...`);
     
-    if (response.data.valid) {
-      // License is valid
-      const level = response.data.level as LicenseLevel;
-      const usage = response.data.usage || 0;
+    // First, check if the server is available at all with a simple ping
+    try {
+      await axios.get(`${LICENSE_SERVER_URL}`, { timeout: 3000 });
+    } catch (pingError) {
+      console.error(`⚠️ License server is unavailable at ${LICENSE_SERVER_URL}`);
+      console.error('Using the provided license key but running in BASIC mode without verification.');
+      console.error('This license has not been verified with the server.');
       
-      // Get the feature token for server-side validation
-      cachedFeatureToken = {
-        token: response.data.featureToken,
-        expires: now + (response.data.tokenExpires || 3600000) // Default 1 hour
-      };
-      
-      // Cache the result
-      cachedValidation = createValidationResult(
-        level, 
-        true, 
-        `License validated: ${level} tier`,
-        usage
-      );
-      
-      lastValidationTime = now;
-      return cachedValidation;
-    } else {
-      // License is invalid
+      // Since they have a valid-looking license key format, grant BASIC tier for convenience
+      // in case the server is temporarily down
       return createValidationResult(
-        LicenseLevel.FREE, 
-        false, 
-        response.data.message || 'Invalid license key'
+        LicenseLevel.BASIC, 
+        true, 
+        'License server unavailable. Running in BASIC mode with unverified key.'
       );
     }
-  } catch (error) {
+    
+    // Now try to validate at the expected endpoint - using POST as specified in the docs
+    try {
+      console.log(`Attempting to validate license using POST to ${LICENSE_SERVER_URL}/validate`);
+      const response = await axios.post(`${LICENSE_SERVER_URL}/validate`, {}, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'X-Client-Id': getMachineId(),
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000 // 5 second timeout
+      });
+      
+      if (response.data.valid) {
+        // License is valid
+        const level = response.data.level as LicenseLevel;
+        const usage = response.data.usage || 0;
+        
+        // Get the feature token for server-side validation
+        cachedFeatureToken = {
+          token: response.data.featureToken,
+          expires: now + (response.data.tokenExpires || 3600000) // Default 1 hour
+        };
+        
+        // Cache the result
+        cachedValidation = createValidationResult(
+          level, 
+          true, 
+          `License validated: ${level} tier`,
+          usage
+        );
+        
+        console.log(`✅ License validation successful: ${level.toUpperCase()} tier active`);
+        console.log(`Features enabled: ${LICENSE_CONFIG[level].allowedCategories.join(', ')}`);
+        
+        lastValidationTime = now;
+        return cachedValidation;
+      } else {
+        // License is invalid
+        console.error('❌ License validation failed: ' + (response.data.message || 'Invalid license key'));
+        console.error('Defaulting to FREE tier with limited functionality.');
+        return createValidationResult(
+          LicenseLevel.FREE, 
+          false, 
+          response.data.message || 'Invalid license key'
+        );
+      }
+    } catch (validationError: any) {
+      // For 404 errors, try an alternative endpoint format (for backward compatibility)
+      if (validationError.response && validationError.response.status === 404) {
+        try {
+          console.log(`POST to /validate failed with 404, trying GET method instead (legacy support)`);
+          const altResponse = await axios.get(`${LICENSE_SERVER_URL}/validate`, {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'X-Client-Id': getMachineId()
+            },
+            timeout: 5000
+          });
+          
+          if (altResponse.data.valid) {
+            // License is valid via alternative method
+            const level = altResponse.data.level as LicenseLevel;
+            const usage = altResponse.data.usage || 0;
+            
+            console.log(`✅ License validation successful via alternative method: ${level.toUpperCase()} tier active`);
+            
+            // Cache the result
+            cachedValidation = createValidationResult(
+              level, 
+              true, 
+              `License validated (alt): ${level} tier`,
+              usage
+            );
+            
+            lastValidationTime = now;
+            return cachedValidation;
+          }
+        } catch (altError: any) {
+          console.error('Alternative validation method also failed');
+        }
+        
+        console.error('⚠️ License server validation endpoint not found (404 error)');
+        console.error('The server is available but the /validate endpoint is missing or not accessible.');
+        console.error('Using the provided license key but running in BASIC mode without verification.');
+        
+        // Since they have a valid-looking license key format, grant BASIC tier for convenience
+        return createValidationResult(
+          LicenseLevel.BASIC, 
+          true, 
+          'License validation endpoint unavailable. Running in BASIC mode with unverified key.'
+        );
+      }
+      
+      // For other errors, throw so they're handled in the catch block below
+      throw validationError;
+    }
+  } catch (error: any) {
     // If API call fails, degrade gracefully to offline mode
-    console.error('License validation service unavailable:', error);
+    console.error('❌ License validation service unavailable:', error);
+    console.error('Defaulting to offline mode...');
+    
+    // Check if error contains HTTP status information that could be useful
+    let errorDetails = '';
+    if (error.response && error.response.status) {
+      errorDetails = ` (HTTP ${error.response.status})`;
+    }
     
     // If we have a cached validation, use it even if expired
     if (cachedValidation) {
+      console.log(`Using cached license information: ${cachedValidation.level.toUpperCase()} tier`);
       return {
         ...cachedValidation,
-        message: 'Using cached license information (offline mode)'
+        message: `Using cached license information (offline mode)${errorDetails}`
       };
     }
     
+    // Since you provided a valid-looking license key, we'll grant BASIC tier as a courtesy
+    // when there are connection issues
+    if (apiKey && apiKey.startsWith('SL-')) {
+      console.log('Valid license key format detected. Using BASIC tier while offline.');
+      return createValidationResult(
+        LicenseLevel.BASIC,
+        true,
+        `License server unavailable${errorDetails}. Running in BASIC mode with unverified key.`
+      );
+    }
+    
     // Otherwise, default to free mode
+    console.error('No cached license information available. Defaulting to FREE tier.');
     return createValidationResult(
       LicenseLevel.FREE, 
       false, 
-      'License validation service unavailable. Running in limited mode.'
+      `License validation service unavailable${errorDetails}. Running in limited mode.`
     );
   }
 }
@@ -163,14 +277,48 @@ export async function validateLicense(): Promise<LicenseValidationResult> {
  */
 export async function getFeatureToken(): Promise<FeatureRequestToken | null> {
   // Ensure we have a valid license first
-  await validateLicense();
+  const licenseResult = await validateLicense();
   
   // Check if we have a valid cached token
   if (cachedFeatureToken && Date.now() < cachedFeatureToken.expires) {
     return cachedFeatureToken;
   }
   
-  return null;
+  // If no license server URL or not in premium tier, don't try to get a token
+  if (!LICENSE_SERVER_URL || licenseResult.level !== LicenseLevel.PREMIUM) {
+    return null;
+  }
+  
+  // Try to get a fresh token from the server
+  try {
+    const apiKey = process.env.JEAN_LICENSE_KEY;
+    if (!apiKey) return null;
+    
+    console.log(`Requesting feature token from ${LICENSE_SERVER_URL}/token`);
+    const response = await axios.post(`${LICENSE_SERVER_URL}/token`, {}, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 5000
+    });
+    
+    if (response.data && response.data.token) {
+      cachedFeatureToken = {
+        token: response.data.token,
+        expires: response.data.expires || (Date.now() + 3600000) // Default to 1 hour if not specified
+      };
+      
+      console.log(`✅ Feature token acquired, valid until ${new Date(cachedFeatureToken.expires).toISOString()}`);
+      return cachedFeatureToken;
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error(`Failed to get feature token: ${error.message}`);
+    // Silent failure - just return null
+    return null;
+  }
 }
 
 /**
@@ -179,8 +327,8 @@ export async function getFeatureToken(): Promise<FeatureRequestToken | null> {
  * @param toolName The tool being used
  */
 export async function trackUsage(licenseKey?: string, toolName = 'unknown'): Promise<void> {
-  const apiKey = licenseKey || process.env.YOUR_SERVICE_API_KEY;
-  if (!apiKey) return;
+  const apiKey = licenseKey || process.env.JEAN_LICENSE_KEY;
+  if (!apiKey || !LICENSE_SERVER_URL) return;
   
   // Get a unique identifier for tracking
   const machineId = getMachineId();
@@ -201,10 +349,12 @@ export async function trackUsage(licenseKey?: string, toolName = 'unknown'): Pro
       machineId
     }, {
       headers: {
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       }
-    }).catch(() => {
-      // Silently fail - we don't want to impact performance
+    }).catch((error) => {
+      // Silently fail with more context - we don't want to impact performance
+      console.debug(`Usage tracking failed: ${error.message}`);
     });
   } catch (error) {
     // Ignore errors - usage tracking is non-critical
@@ -282,5 +432,47 @@ function getMachineId(): string {
   } catch (e) {
     // Fallback to a random ID if we can't get system info
     return Math.random().toString(36).substring(2, 15);
+  }
+}
+
+/**
+ * Print a summary of the current license status to the console
+ * This is useful for displaying on server startup
+ */
+export async function printLicenseStatus(): Promise<void> {
+  try {
+    const validation = await validateLicense();
+    
+    console.log('\n========== LICENSE STATUS ==========');
+    console.log(`License Tier: ${validation.level.toUpperCase()}`);
+    console.log(`Valid: ${validation.valid ? 'Yes' : 'No'}`);
+    console.log(`Message: ${validation.message}`);
+    console.log('Available Features:');
+    console.log(`- Categories: ${validation.features.allowedCategories.join(', ')}`);
+    console.log(`- Max Requests: ${validation.features.maxRequests}`);
+    console.log(`- n8n Integration: ${validation.features.n8nIntegration ? 'Enabled' : 'Disabled'}`);
+    console.log(`- Smartlead API Access: ${validation.features.smartleadApiAccess ? 'Enabled' : 'Disabled'}`);
+    
+    if (!validation.valid) {
+      console.log('\n⚠️  ATTENTION ⚠️');
+      console.log('Your license is not valid or is running in limited mode.');
+      if (!process.env.JEAN_LICENSE_KEY) {
+        console.log('You have not set a license key (JEAN_LICENSE_KEY) in your .env file.');
+      }
+      if (!process.env.LICENSE_SERVER_URL) {
+        console.log('The LICENSE_SERVER_URL is not configured in your .env file.');
+      }
+      console.log('To enable all features, please check your configuration.');
+    }
+    
+    if (process.env.LICENSE_LEVEL_OVERRIDE) {
+      console.log('\n⚠️  DEVELOPMENT MODE ⚠️');
+      console.log(`License level is overridden to: ${process.env.LICENSE_LEVEL_OVERRIDE.toUpperCase()}`);
+      console.log('This override should not be used in production environments.');
+    }
+    
+    console.log('=====================================\n');
+  } catch (error) {
+    console.error('Failed to print license status:', error);
   }
 } 
