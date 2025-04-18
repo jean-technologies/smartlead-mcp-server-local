@@ -1,81 +1,93 @@
 # Smartlead Simplified MCP Server - Developer Onboarding Guide
 
-## Welcome!
-
-This guide will help you understand and set up the Smartlead Simplified MCP Server. Whether you're a new developer joining the team or just exploring the project, this document covers everything you need to know to get started.
-
 ## What is Smartlead MCP Server?
 
 Smartlead MCP Server is a Multi-Channel Proxy that provides an organized interface to the Smartlead API. It implements the Model Context Protocol (MCP), allowing AI agents and other clients to work with Smartlead's email marketing and lead management features.
 
-## Setup Instructions
-
-### Prerequisites
+## Prerequisites
 
 - Node.js (v18+ recommended)
 - npm or yarn
 - A Smartlead API Key
-- A License Key (for BASIC or PREMIUM features)
+- A License Key (purchase at: https://sea-turtle-app-64etr.ondigitalocean.app/)
 
-### Installation
+## Quick Setup
 
-1. **Clone the repository**
+1. **Clone and install**
    ```bash
    git clone https://github.com/your-org/smartlead-simplified.git
    cd smartlead-simplified
-   ```
-
-2. **Install dependencies**
-   ```bash
    npm install
    ```
 
-3. **Set up your environment**
-   Copy the example environment file and update it with your credentials:
+2. **Configure environment**
    ```bash
    cp .env.example .env
+   # Edit .env with your API key and license key
    ```
-   Edit the `.env` file to add your Smartlead API key and license information.
 
-4. **Build the project**
+3. **Build the project**
    ```bash
    npm run build
    ```
 
-## Running the Server
+## Two Main Usage Pathways
 
-The server can run in different modes depending on your needs:
+### Pathway 1: Claude Integration (STDIO Mode)
 
-### Standard Mode (STDIO)
+This is for using Smartlead tools directly with Claude and similar AI assistants:
 
-This is the default mode for direct communication with clients like Claude:
+1. **Configure Claude Settings**
+   - In your Claude settings JSON, add:
+   ```json
+   {
+     "mcp": {
+       "name": "smartlead",
+       "execute_path": "/path/to/your/smartlead-simplified/dist/index.js",
+       "env": {
+         "SMARTLEAD_API_KEY": "your_api_key_here",
+         "LICENSE_SERVER_URL": "https://sea-turtle-app-64etr.ondigitalocean.app",
+         "JEAN_LICENSE_KEY": "your_license_key_here"
+       }
+     }
+   }
+   ```
 
-```bash
-npm start
-```
+2. **Start the server**
+   ```bash
+   npm start
+   ```
 
-### Server-Sent Events Mode (SSE)
+3. **Use with Claude**
+   - Claude will now have access to all Smartlead tools allowed by your license tier.
+   - Example: Ask Claude to "Create a new outreach campaign in Smartlead" or "Check deliverability metrics for my domain"
 
-For web clients that communicate via HTTP:
+### Pathway 2: n8n Integration (SSE Mode)
 
-```bash
-npm run start:sse
-```
-This exposes:
-- SSE endpoint: `http://localhost:3000/sse`
-- Message endpoint: `http://localhost:3000/message`
+This is for using Smartlead tools with n8n automation workflows:
 
-### Supergateway Integration
+1. **Start the server in SSE mode**
+   ```bash
+   npm run start:sse
+   ```
+   The server will run on port 3000 by default.
 
-For n8n integration and advanced use cases (requires BASIC or PREMIUM license):
+2. **Set up ngrok tunnel**
+   To make your local server accessible to n8n (especially n8n cloud):
+   ```bash
+   npm install -g ngrok
+   ngrok http 3000
+   ```
+   This will provide a public URL like `https://xxxxxxx.ngrok.io`
 
-```bash
-npm run start:sse-supergateway
-```
+3. **Connect n8n to your server**
+   - Add an MCP node in n8n workflow
+   - Configure the node with:
+     - SSE URL: `https://xxxxxxx.ngrok.io/sse`
+     - Message URL: `https://xxxxxxx.ngrok.io/message`
+   - Now you can use Smartlead tools directly in your n8n workflows
 
 ## License Tiers
-
-The application supports three license tiers:
 
 | Tier | Features | Tools |
 |------|----------|-------|
@@ -83,117 +95,24 @@ The application supports three license tiers:
 | **BASIC** | + Analytics, Webhooks, Smart Delivery, n8n Integration | 50+ tools |
 | **PREMIUM** | + Advanced Features, Higher Usage Limits | All tools |
 
-## Project Structure
-
-```
-smartlead-simplified/
-├── dist/               # Compiled JavaScript files
-├── src/                # TypeScript source code
-│   ├── config/         # Configuration files
-│   ├── handlers/       # Tool implementation logic
-│   ├── licensing/      # License validation system
-│   ├── n8n/            # n8n integration components
-│   ├── registry/       # Tool registry & management
-│   ├── tools/          # Tool definitions by category
-│   ├── types/          # TypeScript type definitions
-│   ├── index.ts        # Main entry point
-│   └── supergateway.ts # Supergateway integration
-├── .env                # Environment variables
-├── .env.example        # Example environment file
-├── package.json        # Project dependencies
-└── tsconfig.json       # TypeScript configuration
-```
-
-## Key Components
-
-### 1. Server Core (`src/index.ts`)
-
-The main entry point that sets up the MCP server, handles requests, and routes them to the appropriate handlers.
-
-### 2. Licensing System (`src/licensing/index.ts`)
-
-Manages license validation, feature access control, and communicates with the license server.
-
-### 3. Tool Registry (`src/registry/tool-registry.ts`)
-
-Maintains the registry of all available tools and their metadata.
-
-### 4. Category-based Tools (`src/tools/`)
-
-Tools are organized by functional categories:
-- `campaign.js` - Campaign management
-- `lead.js` - Lead management
-- `statistics.js` - Analytics and reporting
-- `smartDelivery.js` - Deliverability tools
-- `webhooks.js` - Webhook integration
-- And more...
-
-### 5. Handlers (`src/handlers/`)
-
-Contain the actual implementation logic for each tool, making API calls to Smartlead.
-
-## License Validation Flow
-
-1. Server starts up and attempts to validate the license
-2. It contacts the license server at `LICENSE_SERVER_URL` 
-3. Based on the response, it enables the appropriate feature set
-4. For unavailable license servers, it validates key format and grants appropriate tier
-
-### Secure Premium Features
-
-Premium features employ an additional layer of security with server-side validation tokens:
-
-1. When a premium tool is invoked, the server requests a secure validation token from the license server
-2. This token is time-limited (typically 1 hour) and tied to the specific license key
-3. The token includes a cryptographic signature that cannot be forged
-4. For sensitive operations, the tool verifies this token with the license server before proceeding
-
-This approach ensures that premium features cannot be accessed without a valid, paid license, even if the code is modified locally.
-
-## Development Guidelines
-
-### Adding New Tools
-
-1. Define the tool in the appropriate category file in `src/tools/`
-2. Implement the handler in the corresponding file in `src/handlers/`
-3. Make sure to respect license tier restrictions
-4. Register the tool in the registry by updating the tool registration in `src/index.ts`
-
-### Testing Tools
-
-Test your tools using the appropriate interface:
-
-**STDIO Mode**:
-```bash
-echo '{"jsonrpc": "2.0", "id": 1, "method": "your_new_tool", "params": {}}' | npm start
-```
-
-**SSE Mode**:
-```bash
-# With curl
-curl -X POST http://localhost:3000/message \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "your_new_tool", "params": {}}'
-```
-
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"License server unavailable"**
-   - Check your internet connection
-   - Verify `LICENSE_SERVER_URL` in `.env`
-   - Contact license server administrator
+1. **License validation issues**
+   - Verify your license key is correct
+   - Check internet connection
+   - Ensure LICENSE_SERVER_URL is set correctly
 
-2. **"Tool not found" errors**
-   - Ensure the tool is properly registered
-   - Check if the tool is available in your license tier
-   - Verify tool name spelling
+2. **Connection problems with n8n**
+   - Verify ngrok tunnel is running
+   - Check that n8n is using the correct URLs
+   - Make sure you have a BASIC or PREMIUM license for n8n integration
 
-3. **Supergateway integration failures**
-   - Ensure you have a BASIC or PREMIUM license
-   - Check that `USE_SUPERGATEWAY=true` in your environment
-   - Verify the `SUPERGATEWAY_API_KEY` is set
+3. **Claude integration issues**
+   - Verify the path to index.js is correct
+   - Ensure environment variables are properly set
+   - Check that the server is running in STDIO mode
 
 ### Debugging
 
@@ -201,46 +120,12 @@ Enable more detailed logging by prefixing your command with `DEBUG=smartlead:*`:
 
 ```bash
 DEBUG=smartlead:* npm start
+# or
+DEBUG=smartlead:* npm run start:sse
 ```
-
-## Best Practices
-
-1. **License Management**:
-   - Never hardcode license keys
-   - Use proper environment variables
-   - Handle license validation failures gracefully
-
-2. **Error Handling**:
-   - Always include proper error handling in tool implementations
-   - Provide clear error messages to clients
-   - Use the retry mechanism for transient errors
-
-3. **Performance**:
-   - Minimize unnecessary API calls
-   - Use caching when appropriate
-   - Monitor performance in production
 
 ## Additional Resources
 
 - [Smartlead API Documentation](https://docs.smartlead.ai)
 - [Model Context Protocol Specification](https://github.com/modelcontextprotocol/spec)
-- [n8n Integration Guide](https://docs.n8n.io)
-
-## Common Commands Reference
-
-```bash
-# Development
-npm run dev              # Run with auto-rebuild
-npm run build            # Compile TypeScript
-npm run lint             # Check code style
-
-# Runtime
-npm start                # Run in STDIO mode
-npm run start:sse        # Run with SSE interface
-npm run start:supergateway  # Run with Supergateway (basic)
-npm run start:sse-supergateway # Run with SSE + Supergateway (premium)
-
-# Testing
-npm test                 # Run all tests
-npm run test:supergateway # Test Supergateway integration
-``` 
+- [n8n Integration Guide](https://docs.n8n.io) 
