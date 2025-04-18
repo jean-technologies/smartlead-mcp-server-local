@@ -1,61 +1,60 @@
-# Smartlead Simplified MCP Server (with Licensing)
+# Smartlead Simplified MCP Server
 
-This application provides a simplified interface or Multi-Channel Proxy (MCP) for interacting with the Smartlead API. It organizes Smartlead API calls into logical tools and categories, facilitating integration with various clients and workflows.
+This application provides a simplified interface to the Smartlead API, allowing AI assistants and automation tools to interact with Smartlead's email marketing features.
 
-**Licensing:** This server integrates with an external license server to manage feature access based on user subscription tiers (e.g., Free, Basic, Premium). Availability of certain features and tool categories depends on the active license tier validated against the configured license server.
+**Licensing:** Features are enabled based on your license tier (Free, Basic, Premium). [Get a license here](https://sea-turtle-app-64etr.ondigitalocean.app/) or use the free version.
 
-> **To get started, purchase a license at:** https://sea-turtle-app-64etr.ondigitalocean.app/
+> **For developer details:** See [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md)
 
-> **For setup instructions and developer documentation, see:** [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md)
+## Quick Start
 
-<a href="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local/badge" alt="Smartlead Simplified Server MCP server" />
-</a>
+### With Claude:
+```bash
+npx smartlead-mcp-server start
+```
 
-## Core Features
+### With n8n:
+```bash
+npx smartlead-mcp-server sse
+```
 
-*   **Proxies Smartlead API:** Acts as an intermediary for Smartlead API calls.
-*   **Tool Abstraction:** Provides a structured set of tools for managing:
-    *   Campaign Management
-    *   Lead Management
-    *   Campaign Statistics
-    *   Smart Delivery (Spam Tests, DNS Checks, etc.)
-    *   Webhooks
-    *   Client Management
-    *   Smart Senders (Domain/Mailbox Purchase)
-*   **License Validation:** Checks license status against an external server to enable appropriate features.
-*   **Multiple Operation Modes:** Supports standard STDIO communication, Server-Sent Events (SSE) for web clients, and optional Supergateway integration.
-*   **Configurable:** Retry logic, API endpoints, and feature flags can be configured via environment variables.
+First run will prompt for your Smartlead API Key and License Key.
 
-## Prerequisites
+## Integration Examples
 
-*   Node.js (v18+ recommended)
-*   npm or yarn
-*   A Smartlead API Key
-*   A valid License Key obtained from our [license server](https://sea-turtle-app-64etr.ondigitalocean.app/)
+### Claude Extension:
+```json
+{
+  "mcpServers": {
+    "smartlead": {
+      "command": "npx",
+      "args": ["smartlead-mcp-server", "start"],
+      "env": {
+        "SMARTLEAD_API_KEY": "your_api_key_here",
+        "JEAN_LICENSE_KEY": "your_license_key_here"
+      }
+    }
+  }
+}
+```
 
-## Available Tool Categories (Subject to License)
+### n8n Setup:
+1. Start the server: `npx smartlead-mcp-server sse`
+2. Configure n8n MCP Client node with:
+   - SSE URL: `http://localhost:3000/sse`
+   - Message URL: `http://localhost:3000/message`
 
-**FREE Tier:**
-*   **Campaign Management**: Create, update, manage campaigns/sequences.
-*   **Lead Management**: Add, update, track leads.
+## Available Features
 
-**BASIC Tier (includes all FREE features plus):**
-*   **Campaign Statistics**: Fetch and analyze performance metrics.
-*   **Smart Delivery**: Optimize email delivery, spam tests, DNS checks.
-*   **Webhooks**: Manage webhook integrations.
-*   **n8n Integration**: Connect with n8n workflows via SSE.
+**FREE:** Campaign & Lead Management (20+ tools)
 
-**PREMIUM Tier (includes all BASIC features plus):**
-*   **Client Management**: Manage clients and permissions.
-*   **Smart Senders**: Search, generate, purchase domains/mailboxes.
-*   **Advanced Features**: Higher usage limits and premium capabilities.
+**BASIC:** + Statistics, Smart Delivery, Webhooks, n8n Integration (50+ tools)
 
----
+**PREMIUM:** + Client Management, Smart Senders, Advanced Features (All tools)
 
-## Contact
+## Need Help?
 
-For support or questions, please contact:
-
-*   **Email:** jonathan@jeantechnologies.com
-*   **Website:** [jeantechnologies.com](https://jeantechnologies.com)
+- Run `npx smartlead-mcp-server config` to set up credentials
+- Use `--api-key` and `--license-key` options for non-interactive setup
+- Contact: jonathan@jeantechnologies.com
+- Website: [jeantechnologies.com](https://jeantechnologies.com)

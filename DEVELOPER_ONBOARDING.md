@@ -1,141 +1,98 @@
-# Smartlead Simplified MCP Server - Developer Onboarding Guide
+# Smartlead MCP Server - Developer Guide
 
-## What is Smartlead MCP Server?
+## Overview
 
-Smartlead MCP Server is a Multi-Channel Proxy that provides an organized interface to the Smartlead API. It implements the Model Context Protocol (MCP), allowing AI agents and other clients to work with Smartlead's email marketing and lead management features.
+Smartlead MCP Server provides an organized interface to the Smartlead API using the Model Context Protocol (MCP), enabling AI assistants and automation tools to manage email marketing campaigns.
 
 ## Prerequisites
 
-- Node.js (v18+ recommended)
-- npm or yarn
+- Node.js (v18+)
 - A Smartlead API Key
-- A License Key (purchase at: https://sea-turtle-app-64etr.ondigitalocean.app/)
+- A License Key ([Free or paid](https://sea-turtle-app-64etr.ondigitalocean.app/))
 
-## Quick Setup
+## Quick Start Options
 
-1. **Clone and install**
-   ```bash
-   git clone https://github.com/your-org/smartlead-simplified.git
-   cd smartlead-simplified
-   npm install
-   ```
+### Option 1: Use npx (Recommended)
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API key and license key
-   ```
+```bash
+# For Claude
+npx smartlead-mcp-server start
 
-3. **Build the project**
-   ```bash
-   npm run build
-   ```
+# For n8n
+npx smartlead-mcp-server sse
+```
 
-## Two Main Usage Pathways
+### Option 2: Development Setup
 
-### Pathway 1: Claude Integration (STDIO Mode)
+```bash
+# Clone and install
+git clone https://github.com/jean-technologies/smartlead-mcp-server-local.git
+cd smartlead-mcp-server-local
+npm install
 
-This is for using Smartlead tools directly with Claude and similar AI assistants:
+# Configure and build
+cp .env.example .env  # Then edit with your keys
+npm run build
 
-1. **Configure Claude Settings**
-   - In your Claude settings JSON, add:
-   ```json
-   {
-     "mcp": {
-       "name": "smartlead",
-       "execute_path": "/path/to/your/smartlead-simplified/dist/index.js",
-       "env": {
-         "SMARTLEAD_API_KEY": "your_api_key_here",
-         "LICENSE_SERVER_URL": "https://sea-turtle-app-64etr.ondigitalocean.app",
-         "JEAN_LICENSE_KEY": "your_license_key_here"
-       }
-     }
-   }
-   ```
+# Run
+npm start  # For Claude
+# OR
+npm run start:sse  # For n8n
+```
 
-2. **Start the server**
-   ```bash
-   npm start
-   ```
+## Two Integration Pathways
 
-3. **Use with Claude**
-   - Claude will now have access to all Smartlead tools allowed by your license tier.
-   - Example: Ask Claude to "Create a new outreach campaign in Smartlead" or "Check deliverability metrics for my domain"
+### 1. Claude Integration
 
-### Pathway 2: n8n Integration (SSE Mode)
+Add to Claude settings JSON:
+```json
+{
+  "mcp": {
+    "name": "smartlead",
+    "command": "npx",
+    "args": ["smartlead-mcp-server", "start"],
+    "env": {
+      "SMARTLEAD_API_KEY": "your_api_key_here",
+      "JEAN_LICENSE_KEY": "your_license_key_here"
+    }
+  }
+}
+```
 
-This is for using Smartlead tools with n8n automation workflows:
+### 2. n8n Integration
 
-1. **Start the server in SSE mode**
-   ```bash
-   npm run start:sse
-   ```
-   The server will run on port 3000 by default.
+#### Local n8n:
+1. Run server: `npx smartlead-mcp-server sse`
+2. Configure n8n MCP node with:
+   - SSE URL: `http://localhost:3000/sse`
+   - Message URL: `http://localhost:3000/message`
 
-2. **Connect n8n to your server**
-
-   **For local n8n setup (running on the same machine):**
-   - Add an MCP node in your n8n workflow
-   - Configure the node with:
-     - SSE URL: `http://localhost:3000/sse`
-     - Message URL: `http://localhost:3000/message`
-   - That's it! No need for ngrok when both services are running locally.
-
-   **For n8n cloud or remote n8n:**
-   - Set up ngrok tunnel to make your local server accessible:
-     ```bash
-     npm install -g ngrok
-     ngrok http 3000
-     ```
-   - This will provide a public URL like `https://xxxxxxx.ngrok.io`
-   - Configure the MCP node with:
-     - SSE URL: `https://xxxxxxx.ngrok.io/sse`
-     - Message URL: `https://xxxxxxx.ngrok.io/message`
-
-3. **Use in n8n workflows**
-   - Now you can use Smartlead tools directly in your n8n workflows
-   - All tools available to your license tier will appear in the MCP node's actions
+#### n8n Cloud:
+1. Run server: `npx smartlead-mcp-server sse`
+2. Create tunnel: `npx ngrok http 3000`
+3. Use ngrok URL in n8n MCP node
 
 ## License Tiers
 
-| Tier | Features | Tools |
-|------|----------|-------|
-| **FREE** | Basic campaign & lead management | 20+ tools |
-| **BASIC** | + Analytics, Webhooks, Smart Delivery, n8n Integration | 50+ tools |
-| **PREMIUM** | + Advanced Features, Higher Usage Limits | All tools |
+| Tier | Tools | Features |
+|------|-------|----------|
+| **FREE** | 20+ | Campaign & Lead Management |
+| **BASIC** | 50+ | + Statistics, Smart Delivery, Webhooks, n8n |
+| **PREMIUM** | All | + Client Management, Smart Senders, Advanced Features |
 
 ## Troubleshooting
 
-### Common Issues
+### Common Solutions
+- Configure settings: `npx smartlead-mcp-server config`
+- Set keys directly: `npx smartlead-mcp-server sse --api-key=X --license-key=Y`
+- Debug mode: `DEBUG=smartlead:* npx smartlead-mcp-server start`
 
-1. **License validation issues**
-   - Verify your license key is correct
-   - Check internet connection
-   - Ensure LICENSE_SERVER_URL is set correctly
+### License Issues
+- Free license key: `JEANPARTNER`
+- Basic/Premium: Purchase at [license server](https://sea-turtle-app-64etr.ondigitalocean.app/)
 
-2. **Connection problems with n8n**
-   - For local setup: Make sure both servers are running and using the correct ports
-   - For remote/cloud setup: Verify ngrok tunnel is running
-   - Check that n8n is using the correct URLs
-   - Make sure you have a BASIC or PREMIUM license for n8n integration
+## Resources
 
-3. **Claude integration issues**
-   - Verify the path to index.js is correct
-   - Ensure environment variables are properly set
-   - Check that the server is running in STDIO mode
-
-### Debugging
-
-Enable more detailed logging by prefixing your command with `DEBUG=smartlead:*`:
-
-```bash
-DEBUG=smartlead:* npm start
-# or
-DEBUG=smartlead:* npm run start:sse
-```
-
-## Additional Resources
-
-- [Smartlead API Documentation](https://docs.smartlead.ai)
-- [Model Context Protocol Specification](https://github.com/modelcontextprotocol/spec)
+- [Smartlead API Docs](https://docs.smartlead.ai)
+- [MCP Specification](https://github.com/modelcontextprotocol/spec)
 - [n8n Integration Guide](https://docs.n8n.io) 
