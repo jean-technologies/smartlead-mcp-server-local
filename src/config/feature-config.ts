@@ -4,13 +4,13 @@ import { isCategoryEnabled } from '../licensing/index.js';
 // These are the default values when license validation is unavailable
 export const enabledCategories = {
   campaignManagement: true,
-  emailAccountManagement: false,
+  emailAccountManagement: true,
   leadManagement: true,
-  campaignStatistics: false,
-  smartDelivery: false,
-  webhooks: false,
-  clientManagement: false,
-  smartSenders: false
+  campaignStatistics: true,
+  smartDelivery: true,
+  webhooks: true,
+  clientManagement: true,
+  smartSenders: true
 };
 
 // Configuration for enabling/disabling individual tools
