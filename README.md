@@ -4,6 +4,10 @@ This application provides a simplified interface or Multi-Channel Proxy (MCP) fo
 
 **Licensing:** This server integrates with an external license server (`smartlead-license-server`) to manage feature access based on user subscription tiers (e.g., Free, Basic, Premium). Availability of certain features and tool categories depends on the active license tier validated against the configured license server.
 
+<a href="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local/badge" alt="Smartlead Simplified Server MCP server" />
+</a>
+
 ## Core Features
 
 *   **Proxies Smartlead API:** Acts as an intermediary for Smartlead API calls.
