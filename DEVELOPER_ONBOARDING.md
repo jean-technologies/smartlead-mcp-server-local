@@ -72,20 +72,29 @@ This is for using Smartlead tools with n8n automation workflows:
    ```
    The server will run on port 3000 by default.
 
-2. **Set up ngrok tunnel**
-   To make your local server accessible to n8n (especially n8n cloud):
-   ```bash
-   npm install -g ngrok
-   ngrok http 3000
-   ```
-   This will provide a public URL like `https://xxxxxxx.ngrok.io`
+2. **Connect n8n to your server**
 
-3. **Connect n8n to your server**
-   - Add an MCP node in n8n workflow
+   **For local n8n setup (running on the same machine):**
+   - Add an MCP node in your n8n workflow
    - Configure the node with:
+     - SSE URL: `http://localhost:3000/sse`
+     - Message URL: `http://localhost:3000/message`
+   - That's it! No need for ngrok when both services are running locally.
+
+   **For n8n cloud or remote n8n:**
+   - Set up ngrok tunnel to make your local server accessible:
+     ```bash
+     npm install -g ngrok
+     ngrok http 3000
+     ```
+   - This will provide a public URL like `https://xxxxxxx.ngrok.io`
+   - Configure the MCP node with:
      - SSE URL: `https://xxxxxxx.ngrok.io/sse`
      - Message URL: `https://xxxxxxx.ngrok.io/message`
+
+3. **Use in n8n workflows**
    - Now you can use Smartlead tools directly in your n8n workflows
+   - All tools available to your license tier will appear in the MCP node's actions
 
 ## License Tiers
 
@@ -105,7 +114,8 @@ This is for using Smartlead tools with n8n automation workflows:
    - Ensure LICENSE_SERVER_URL is set correctly
 
 2. **Connection problems with n8n**
-   - Verify ngrok tunnel is running
+   - For local setup: Make sure both servers are running and using the correct ports
+   - For remote/cloud setup: Verify ngrok tunnel is running
    - Check that n8n is using the correct URLs
    - Make sure you have a BASIC or PREMIUM license for n8n integration
 

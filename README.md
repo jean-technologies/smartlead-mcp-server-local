@@ -8,6 +8,10 @@ This application provides a simplified interface or Multi-Channel Proxy (MCP) fo
 
 > **For setup instructions and developer documentation, see:** [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md)
 
+<a href="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@jean-technologies/smartlead-mcp-server-local/badge" alt="Smartlead Simplified Server MCP server" />
+</a>
+
 ## Core Features
 
 *   **Proxies Smartlead API:** Acts as an intermediary for Smartlead API calls.
