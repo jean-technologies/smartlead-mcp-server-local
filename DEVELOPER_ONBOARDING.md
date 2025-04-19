@@ -88,7 +88,7 @@ Add to Claude settings JSON:
 - Debug mode: `DEBUG=smartlead:* npx smartlead-mcp-server start`
 
 ### License Issues
-- Free license key: `JEANPARTNER`
+- Free license promo code (use at checkout): `JEANPARTNER`
 - Basic/Premium: Purchase at [license server](https://sea-turtle-app-64etr.ondigitalocean.app/)
 
 ## Resources
