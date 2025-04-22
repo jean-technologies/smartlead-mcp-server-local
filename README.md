@@ -58,3 +58,9 @@ First run will prompt for your Smartlead API Key and License Key.
 - Use `--api-key` and `--license-key` options for non-interactive setup
 - Contact: jonathan@jeantechnologies.com
 - Website: [jeantechnologies.com](https://jeantechnologies.com)
+
+## License
+
+This software is proprietary and confidential. Unauthorized copying, redistribution, or use of this software, in whole or in part, via any medium, is strictly prohibited without the express permission of Jean Technologies.
+
+Copyright © 2025 Jean Technologies. All rights reserved.
