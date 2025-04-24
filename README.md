@@ -10,7 +10,7 @@ This application provides a simplified interface to the Smartlead API, allowing 
 
 ### Installation
 ```bash
-npm install smartlead-mcp-server@1.1.0
+npm install smartlead-mcp-server@1.2.1
 ```
 
 or use directly with npx (no installation needed):
