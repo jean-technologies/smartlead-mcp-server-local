@@ -11,6 +11,10 @@ This application provides a simplified interface to the Smartlead API, allowing 
 ### Installation
 ```bash
 npm install smartlead-mcp-server@1.1.0
+```
+
+or use directly with npx (no installation needed):
+
 
 ### With Claude:
 ```bash
