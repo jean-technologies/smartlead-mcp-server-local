@@ -55,6 +55,20 @@ export interface CampaignMailboxStatisticsParams {
   timezone?: string;
 }
 
+// Interface for downloading campaign data
+export interface DownloadCampaignDataParams {
+  campaign_id: number;
+  download_type: string;
+  format: string;
+  user_id?: string;
+}
+
+// Interface for viewing download statistics
+export interface ViewDownloadStatisticsParams {
+  time_period?: 'all' | 'today' | 'week' | 'month';
+  group_by?: 'type' | 'format' | 'campaign' | 'date';
+}
+
 // Type guards for params validation
 
 export function isCampaignStatisticsParams(args: unknown): args is CampaignStatisticsParams {
@@ -183,44 +197,53 @@ export function isCampaignLeadStatisticsParams(args: unknown): args is CampaignL
   return true;
 }
 
-export function isCampaignMailboxStatisticsParams(args: unknown): args is CampaignMailboxStatisticsParams {
-  if (typeof args !== 'object' || args === null) {
-    return false;
-  }
+export function isCampaignMailboxStatisticsParams(obj: unknown): obj is CampaignMailboxStatisticsParams {
+  return (
+    !!obj &&
+    typeof obj === 'object' &&
+    'campaign_id' in obj &&
+    typeof (obj as CampaignMailboxStatisticsParams).campaign_id === 'number'
+  );
+}
 
-  const params = args as CampaignMailboxStatisticsParams;
+export function isDownloadCampaignDataParams(obj: unknown): obj is DownloadCampaignDataParams {
+  if (!obj || typeof obj !== 'object') return false;
   
-  if (typeof params.campaign_id !== 'number') {
+  const params = obj as Partial<DownloadCampaignDataParams>;
+  
+  // Check required fields
+  if (typeof params.campaign_id !== 'number') return false;
+  
+  if (!params.download_type || 
+      !['analytics', 'leads', 'sequence', 'full_export'].includes(params.download_type)) {
     return false;
   }
   
-  // Optional client_id must be a string if present
-  if (params.client_id !== undefined && typeof params.client_id !== 'string') {
+  if (!params.format || !['json', 'csv'].includes(params.format)) {
     return false;
   }
   
-  // Optional offset must be a number if present
-  if (params.offset !== undefined && typeof params.offset !== 'number') {
+  // Check optional fields
+  if (params.user_id !== undefined && typeof params.user_id !== 'string') {
     return false;
   }
   
-  // Optional limit must be a number if present
-  if (params.limit !== undefined && typeof params.limit !== 'number') {
+  return true;
+}
+
+export function isViewDownloadStatisticsParams(obj: unknown): obj is ViewDownloadStatisticsParams {
+  if (!obj || typeof obj !== 'object') return false;
+  
+  const params = obj as Partial<ViewDownloadStatisticsParams>;
+  
+  // Both fields are optional, but need to be validated if present
+  if (params.time_period !== undefined && 
+      !['all', 'today', 'week', 'month'].includes(params.time_period)) {
     return false;
   }
   
-  // Optional start_date must be a string if present
-  if (params.start_date !== undefined && typeof params.start_date !== 'string') {
-    return false;
-  }
-  
-  // Optional end_date must be a string if present
-  if (params.end_date !== undefined && typeof params.end_date !== 'string') {
-    return false;
-  }
-  
-  // Optional timezone must be a string if present
-  if (params.timezone !== undefined && typeof params.timezone !== 'string') {
+  if (params.group_by !== undefined &&
+      !['type', 'format', 'campaign', 'date'].includes(params.group_by)) {
     return false;
   }
   

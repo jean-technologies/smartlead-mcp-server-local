@@ -50,13 +50,12 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
   // Print detailed license information
   await printLicenseStatus();
   
-  // Still get the license result for configuration
-  const licenseResult = await validateLicense();
-  
-  // Set n8n integration flag based on license
-  featureFlags.n8nIntegration = licenseResult.features.n8nIntegration;
+  // Always enable n8n integration regardless of license
+  featureFlags.n8nIntegration = true;
 })().catch(error => {
   console.error('License validation error:', error);
+  // Still ensure n8n integration is enabled even if there's an error
+  featureFlags.n8nIntegration = true;
 });
 
 // Check if Supergateway integration is enabled

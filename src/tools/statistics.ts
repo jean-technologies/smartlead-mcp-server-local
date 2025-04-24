@@ -193,8 +193,61 @@ export const CAMPAIGN_MAILBOX_STATISTICS_TOOL: CategoryTool = {
   },
 };
 
+// Add this new tool for downloading campaign data with tracking
+export const DOWNLOAD_CAMPAIGN_DATA_TOOL: CategoryTool = {
+  name: 'smartlead_download_campaign_data',
+  description: 'Download campaign data and track the download for analytics.',
+  category: ToolCategory.CAMPAIGN_STATISTICS,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      campaign_id: {
+        type: 'number',
+        description: 'ID of the campaign to download data for',
+      },
+      download_type: {
+        type: 'string',
+        enum: ['analytics', 'leads', 'sequence', 'full_export'],
+        description: 'Type of data to download',
+      },
+      format: {
+        type: 'string',
+        enum: ['json', 'csv'],
+        description: 'Format of the downloaded data',
+      },
+      user_id: {
+        type: 'string',
+        description: 'Optional user identifier for tracking downloads',
+      },
+    },
+    required: ['campaign_id', 'download_type', 'format'],
+  },
+};
+
+// Add this new tool for viewing download statistics
+export const VIEW_DOWNLOAD_STATISTICS_TOOL: CategoryTool = {
+  name: 'smartlead_view_download_statistics',
+  description: 'View statistics about downloaded campaign data.',
+  category: ToolCategory.CAMPAIGN_STATISTICS,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      time_period: {
+        type: 'string',
+        enum: ['all', 'today', 'week', 'month'],
+        description: 'Time period to filter statistics by',
+      },
+      group_by: {
+        type: 'string',
+        enum: ['type', 'format', 'campaign', 'date'],
+        description: 'How to group the statistics',
+      },
+    },
+  },
+};
+
 // Export an array of all campaign statistics tools for registration
-export const statisticsTools = [
+export const statisticsTools: CategoryTool[] = [
   CAMPAIGN_STATISTICS_TOOL,
   CAMPAIGN_STATISTICS_BY_DATE_TOOL,
   WARMUP_STATS_BY_EMAIL_TOOL,
@@ -202,4 +255,6 @@ export const statisticsTools = [
   CAMPAIGN_TOP_LEVEL_ANALYTICS_BY_DATE_TOOL,
   CAMPAIGN_LEAD_STATISTICS_TOOL,
   CAMPAIGN_MAILBOX_STATISTICS_TOOL,
+  DOWNLOAD_CAMPAIGN_DATA_TOOL,
+  VIEW_DOWNLOAD_STATISTICS_TOOL,
 ]; 

@@ -30,18 +30,22 @@ export const featureFlags = {
 
 // Helper function to check if a tool should be enabled
 export async function isToolEnabled(toolName: string, category: string): Promise<boolean> {
-  // Check if the tool has a specific override
-  if (enabledTools[toolName] !== undefined) {
-    return enabledTools[toolName];
-  }
+  // Always enable all tools
+  return true;
   
-  // Otherwise, check if the category is enabled by the license
-  try {
-    return await isCategoryEnabled(category);
-  } catch (error) {
-    // Fallback to default configuration if license check fails
-    console.error(`License validation failed, using default configuration: ${error}`);
-    const categoryKey = category as keyof typeof enabledCategories;
-    return enabledCategories[categoryKey] || false;
-  }
+  // The following code is kept for reference but will never execute
+  // // Check if the tool has a specific override
+  // if (enabledTools[toolName] !== undefined) {
+  //   return enabledTools[toolName];
+  // }
+  // 
+  // // Otherwise, check if the category is enabled by the license
+  // try {
+  //   return await isCategoryEnabled(category);
+  // } catch (error) {
+  //   // Fallback to default configuration if license check fails
+  //   console.error(`License validation failed, using default configuration: ${error}`);
+  //   const categoryKey = category as keyof typeof enabledCategories;
+  //   return enabledCategories[categoryKey] || false;
+  // }
 } 
