@@ -1,6 +1,6 @@
 {
   "name": "smartlead-mcp-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "MCP server for Smartlead campaign management integration. Features include creating campaigns, updating campaign settings, and managing campaign sequences.",
   "author": "Jonathan Politzki",
   "type": "module",

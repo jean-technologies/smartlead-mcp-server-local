@@ -8,7 +8,6 @@ Smartlead MCP Server provides an organized interface to the Smartlead API using 
 
 - Node.js (v18+)
 - A Smartlead API Key
-- A License Key ([Free or paid](https://sea-turtle-app-64etr.ondigitalocean.app/))
 
 ## Quick Start Options
 
@@ -31,7 +30,7 @@ cd smartlead-mcp-server-local
 npm install
 
 # Configure and build
-cp .env.example .env  # Then edit with your keys
+cp .env.example .env  # Then edit with your API key
 npm run build
 
 # Run
@@ -52,8 +51,7 @@ Add to Claude settings JSON:
     "command": "npx",
     "args": ["smartlead-mcp-server", "start"],
     "env": {
-      "SMARTLEAD_API_KEY": "your_api_key_here",
-      "JEAN_LICENSE_KEY": "your_license_key_here"
+      "SMARTLEAD_API_KEY": "your_api_key_here"
     }
   }
 }
@@ -72,24 +70,57 @@ Add to Claude settings JSON:
 2. Create tunnel: `npx ngrok http 3000`
 3. Use ngrok URL in n8n MCP node
 
-## License Tiers
+## Available Features
 
-| Tier | Tools | Features |
-|------|-------|----------|
-| **FREE** | 20+ | Campaign & Lead Management |
-| **BASIC** | 50+ | + Statistics, Smart Delivery, Webhooks, n8n |
-| **PREMIUM** | All | + Client Management, Smart Senders, Advanced Features |
+All features are now enabled by default, including:
+- Campaign & Lead Management
+- Statistics and Analytics
+- Smart Delivery & Webhooks
+- n8n Integration
+- Client Management
+- Smart Senders
+- Download Tracking and Analytics
+
+## Download Tracking System
+
+### Implementation Details
+
+The download tracking system stores records in `~/.smartlead-mcp/downloads.json` with the following structure:
+
+```json
+{
+  "downloads": [
+    {
+      "id": "unique-download-id",
+      "timestamp": "2023-06-15T12:34:56.789Z",
+      "campaignId": 12345,
+      "downloadType": "analytics",
+      "format": "json",
+      "userId": "optional-user-id",
+      "machineId": "machine-identifier"
+    }
+  ]
+}
+```
+
+### Available Tools
+
+1. **Download Campaign Data**: `smartlead_download_campaign_data`
+   - Fetches data from Smartlead API
+   - Converts to CSV if requested
+   - Automatically tracks download details
+
+2. **View Download Statistics**: `smartlead_view_download_statistics`
+   - Filter by time period (all, today, week, month)
+   - Group by various dimensions (type, format, campaign, date)
+   - Get usage insights and recent downloads
 
 ## Troubleshooting
 
 ### Common Solutions
 - Configure settings: `npx smartlead-mcp-server config`
-- Set keys directly: `npx smartlead-mcp-server sse --api-key=X --license-key=Y`
+- Set API key directly: `npx smartlead-mcp-server sse --api-key=YOUR_API_KEY`
 - Debug mode: `DEBUG=smartlead:* npx smartlead-mcp-server start`
-
-### License Issues
-- Free license promo code (use at checkout): `JEANPARTNER`
-- Basic/Premium: Purchase at [license server](https://sea-turtle-app-64etr.ondigitalocean.app/)
 
 ## Resources
 
