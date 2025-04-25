@@ -26,7 +26,7 @@ npx smartlead-mcp-server start
 npx smartlead-mcp-server sse
 ```
 
-First run will prompt for your Smartlead API Key. No license key is required!
+First run will prompt for your Smartlead API Key. No license key is required.
 
 ## Integration Examples
 
