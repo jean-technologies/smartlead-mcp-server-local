@@ -1,0 +1,29 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'node', args: ['dist/index.js'], env: { SMARTLEAD_API_KEY: config.smartleadApiKey, JEAN_LICENSE_KEY: config.jeanLicenseKey || 'JEANPARTNER', ...(config.smartleadApiUrl ? { SMARTLEAD_API_URL: config.smartleadApiUrl } : {}) } })
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - smartleadApiKey
+    properties:
+      smartleadApiKey:
+        type: string
+        description: Smartlead API Key
+      jeanLicenseKey:
+        type: string
+        default: JEANPARTNER
+        description: Jean License Key
+      smartleadApiUrl:
+        type: string
+        default: https://server.smartlead.ai/api/v1
+        description: Optional Smartlead API URL
+  exampleConfig:
+    smartleadApiKey: YOUR_SMARTLEAD_API_KEY
+    jeanLicenseKey: JEANPARTNER
+    smartleadApiUrl: https://server.smartlead.ai/api/v1

@@ -1,5 +1,7 @@
 # Smartlead Simplified MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@jean-technologies/smartlead-mcp-server-local)](https://smithery.ai/server/@jean-technologies/smartlead-mcp-server-local)
+
 This application provides a simplified interface to the Smartlead API, allowing AI assistants and automation tools to interact with Smartlead's email marketing features. We welcome contribution from the community.
 
 **Licensing:** All features are now enabled by default with maximum permissiveness! No license key required.
@@ -15,6 +17,14 @@ npm install smartlead-mcp-server@1.2.1
 
 or use directly with npx (no installation needed):
 
+
+### Installing via Smithery
+
+To install Smartlead Campaign Management Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@jean-technologies/smartlead-mcp-server-local):
+
+```bash
+npx -y @smithery/cli install @jean-technologies/smartlead-mcp-server-local --client claude
+```
 
 ### With Claude:
 ```bash
