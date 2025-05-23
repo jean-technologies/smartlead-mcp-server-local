@@ -79,24 +79,8 @@ async function ensureEnvVars(): Promise<void> {
 
   // Check for license key
   if (!process.env.JEAN_LICENSE_KEY) {
-    console.log('\nJean License Key not found.');
-    console.log(`\nIf you don't have a license key yet, you can get one at: ${LICENSE_SERVER_URL}`);
-    console.log('Free tier is available with no purchase required.\n');
-    
-    const response = await promptForValue('Do you want to visit the license website now? (y/n): ');
-    if (response.toLowerCase() === 'y') {
-      console.log(`\nPlease visit: ${LICENSE_SERVER_URL}`);
-      console.log('After obtaining your license, come back to this terminal.\n');
-      await promptForValue('Press Enter once you have your license key to continue...');
-    }
-    
-    const licenseKey = await promptForValue('Enter your Jean License Key: ', true);
-    if (licenseKey) {
-      process.env.JEAN_LICENSE_KEY = licenseKey;
-    } else {
-      console.log('\nA license key is required. Using JEANPARTNER for free tier access.');
-      process.env.JEAN_LICENSE_KEY = 'JEANPARTNER';
-    }
+    console.log('\nJean License Key not found. Defaulting to free tier access.');
+    process.env.JEAN_LICENSE_KEY = 'JEANPARTNER';
   }
 
   // Set license server URL if not set
