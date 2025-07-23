@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jean-technologies-smartlead-mcp-server-local-badge.png)](https://mseep.ai/app/jean-technologies-smartlead-mcp-server-local)
+
 # Smartlead Simplified MCP Server
 
 [![smithery badge](https://smithery.ai/badge/@jean-technologies/smartlead-mcp-server-local)](https://smithery.ai/server/@jean-technologies/smartlead-mcp-server-local)
